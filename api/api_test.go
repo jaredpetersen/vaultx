@@ -183,7 +183,27 @@ func TestWriteReturnsErrorWhenProvidedInvalidURL(t *testing.T) {
 
 	apic := api.Client{
 		HTTP: cleanhttp.DefaultClient(),
-		URL:  "nOt A vAlId UrL",
+		URL:  "://nOt A vAlId UrL",
+	}
+
+	res, err := apic.Write(ctx, path, vaultToken, reqBody)
+	require.Error(t, err, "Error does not exist")
+	require.Empty(t, res, "Response is empty")
+}
+
+func TestWriteReturnsErrorWhenProvidedNonexistentURL(t *testing.T) {
+	ctx := context.Background()
+
+	path := "/user/dummy"
+	vaultToken := "vaulttoken"
+	reqBody := dummyRequestBody{
+		Name: "John",
+		Age:  43,
+	}
+
+	apic := api.Client{
+		HTTP: cleanhttp.DefaultClient(),
+		URL:  "http://notarealurl",
 	}
 
 	res, err := apic.Write(ctx, path, vaultToken, reqBody)
@@ -280,7 +300,23 @@ func TestGetReturnsErrorWhenProvidedInvalidURL(t *testing.T) {
 
 	apic := api.Client{
 		HTTP: cleanhttp.DefaultClient(),
-		URL:  "nOt A vAlId UrL",
+		URL:  "://nOt A vAlId UrL",
+	}
+
+	res, err := apic.Read(ctx, path, vaultToken)
+	require.Error(t, err, "Error does not exist")
+	require.Empty(t, res, "Response is empty")
+}
+
+func TestGetReturnsErrorWhenProvidedNonexistentURL(t *testing.T) {
+	ctx := context.Background()
+
+	path := "/user/dummy"
+	vaultToken := "vaulttoken"
+
+	apic := api.Client{
+		HTTP: cleanhttp.DefaultClient(),
+		URL:  "http://notarealurl",
 	}
 
 	res, err := apic.Read(ctx, path, vaultToken)
