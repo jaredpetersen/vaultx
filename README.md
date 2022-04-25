@@ -25,6 +25,7 @@ import (
 	vaultxauth "github.com/jaredpetersen/vaultx/auth"
 )
 
+const k8sRole = "my-app"
 const vaultKVSecretPath = "my-secret"
 const vaultTransitKey = "transit-key"
 
@@ -32,7 +33,7 @@ func main() {
 	ctx := context.Background()
 
 	cfg := vaultx.NewConfig("https://vault.mydomain.com")
-	cfg.Auth.Method = vaultxauth.NewKubernetesAuthMethod(vaultxauth.KubernetesConfig{Role: "my-app"})
+	cfg.Auth.Method = vaultxauth.NewKubernetesAuthMethod(vaultxauth.KubernetesConfig{Role: k8sRole})
 
 	vltx := vaultx.New(cfg)
 
