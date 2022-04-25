@@ -95,7 +95,7 @@ func (k KubernetesAuthMethod) Login(ctx context.Context, api api.API) (*Token, e
 		ClientToken: resBody.Auth.ClientToken,
 		Accessor:    resBody.Auth.Accessor,
 		Lease: TokenLease{
-			Duration:  time.Duration(resBody.Auth.LeaseDuration) * time.Second,
+			Duration:  time.Duration(resBody.Auth.LeaseDuration)* time.Second,
 			Renewable: resBody.Auth.Renewable,
 		},
 		Renewable: resBody.Auth.Renewable,
