@@ -170,6 +170,7 @@ func TestIntegrationEncryptEncryptsData(t *testing.T) {
 
 	transitKey := "my-key"
 	err = vaultContainer.CreateTransitKey(ctx, transitKey)
+	require.NoError(t, err, "Failed to create Vault transit key")
 
 	apic := api.Client{
 		HTTP: cleanhttp.DefaultClient(),
@@ -388,6 +389,7 @@ func TestIntegrationEncryptBatchEncryptsData(t *testing.T) {
 
 	transitKey := "my-key"
 	err = vaultContainer.CreateTransitKey(ctx, transitKey)
+	require.NoError(t, err, "Failed to create Vault transit key")
 
 	apic := api.Client{
 		HTTP: cleanhttp.DefaultClient(),
@@ -597,6 +599,7 @@ func TestIntegrationDecryptDecryptsData(t *testing.T) {
 
 	transitKey := "my-key"
 	err = vaultContainer.CreateTransitKey(ctx, transitKey)
+	require.NoError(t, err, "Failed to create Vault transit key")
 
 	apic := api.Client{
 		HTTP: cleanhttp.DefaultClient(),
@@ -849,6 +852,7 @@ func TestIntegrationDecryptBatchDecryptsData(t *testing.T) {
 
 	transitKey := "my-key"
 	err = vaultContainer.CreateTransitKey(ctx, transitKey)
+	require.NoError(t, err, "Failed to create Vault transit key")
 
 	apic := api.Client{
 		HTTP: cleanhttp.DefaultClient(),

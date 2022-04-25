@@ -154,24 +154,6 @@ func TestWriteSendsPostRequestNoAuth(t *testing.T) {
 	require.Equal(t, resBody, string(actualResBody), "Response body is incorrect")
 }
 
-func TestWriteReturnsErrorWhenProvidedNilContext(t *testing.T) {
-	path := "/user/dummy"
-	vaultToken := "vaulttoken"
-	reqBody := dummyRequestBody{
-		Name: "John",
-		Age:  43,
-	}
-
-	apic := api.Client{
-		HTTP: cleanhttp.DefaultClient(),
-		URL:  "nOt A vAlId UrL",
-	}
-
-	res, err := apic.Write(nil, path, vaultToken, reqBody)
-	require.Error(t, err, "Error does not exist")
-	require.Empty(t, res, "Response is empty")
-}
-
 func TestWriteReturnsErrorWhenProvidedInvalidBody(t *testing.T) {
 	ctx := context.Background()
 
@@ -288,20 +270,6 @@ func TestReadSendsGetRequestNoAuth(t *testing.T) {
 	err = res.JSON(actualResBody)
 	require.NoError(t, err, "Error converting response body to struct")
 	require.Equal(t, resBody, *actualResBody, "Response body is incorrect")
-}
-
-func TestReadReturnsErrorWhenProvidedNilContext(t *testing.T) {
-	path := "/user/dummy"
-	vaultToken := "vaulttoken"
-
-	apic := api.Client{
-		HTTP: cleanhttp.DefaultClient(),
-		URL:  "nOt A vAlId UrL",
-	}
-
-	res, err := apic.Read(nil, path, vaultToken)
-	require.Error(t, err, "Error does not exist")
-	require.Empty(t, res, "Response is empty")
 }
 
 func TestGetReturnsErrorWhenProvidedInvalidURL(t *testing.T) {
