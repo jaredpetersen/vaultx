@@ -209,6 +209,7 @@ func TestIntegrationTransitEncryptEncryptsData(t *testing.T) {
 
 	transitKey := "my-key"
 	err = vaultContainer.CreateTransitKey(ctx, transitKey)
+	require.NoError(t, err, "Failed to create Vault transit key")
 
 	cfg := vaultx.NewConfig(vaultContainer.URI)
 	vltx := vaultx.New(cfg)
@@ -237,6 +238,7 @@ func TestIntegrationTransitEncryptBatchEncryptsData(t *testing.T) {
 
 	transitKey := "my-key"
 	err = vaultContainer.CreateTransitKey(ctx, transitKey)
+	require.NoError(t, err, "Failed to create Vault transit key")
 
 	cfg := vaultx.NewConfig(vaultContainer.URI)
 	vltx := vaultx.New(cfg)
@@ -272,6 +274,7 @@ func TestIntegrationTransitDecryptDecryptsData(t *testing.T) {
 
 	transitKey := "my-key"
 	err = vaultContainer.CreateTransitKey(ctx, transitKey)
+	require.NoError(t, err, "Failed to create Vault transit key")
 
 	cfg := vaultx.NewConfig(vaultContainer.URI)
 	vltx := vaultx.New(cfg)
@@ -305,6 +308,7 @@ func TestIntegrationTransitDecryptBatchDecryptsData(t *testing.T) {
 
 	transitKey := "my-key"
 	err = vaultContainer.CreateTransitKey(ctx, transitKey)
+	require.NoError(t, err, "Failed to create Vault transit key")
 
 	cfg := vaultx.NewConfig(vaultContainer.URI)
 	vltx := vaultx.New(cfg)
