@@ -18,6 +18,8 @@ jobs:
         run: |
           make generate
           make build
+      - name: Validate formatting
+        run: if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then exit 1; fi
       - name: Analyze code
         run: make check
       - name: Test
