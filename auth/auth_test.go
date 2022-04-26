@@ -144,6 +144,30 @@ func TestRenewSelfReturnsErrorOnTokenNotSet(t *testing.T) {
 	require.Empty(t, storedToken, "Token is incorrect")
 }
 
+func TestRenewSelfReturnsErrorOnTokenNotRenewable(t *testing.T) {
+	ctx := context.Background()
+
+	token := auth.Token{
+		Value:      "sometoken",
+		Expiration: 30 * time.Minute,
+		Renewable:  false,
+	}
+
+	apic := apimocks.API{}
+
+	ac := auth.Client{
+		API: &apic,
+	}
+
+	ac.SetToken(token)
+	err := ac.RenewSelf(ctx)
+	require.Error(t, err, "Error does not exist")
+	require.Errorf(t, err, "token is not renewable", "Incorrect error")
+
+	storedToken := ac.GetToken()
+	require.Equal(t, token, storedToken, "Token is incorrect")
+}
+
 func TestRenewSelfReturnsErrorOnRequestFailure(t *testing.T) {
 	ctx := context.Background()
 

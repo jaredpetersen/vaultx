@@ -25,7 +25,6 @@ type Token struct {
 type TokenManager interface {
 	// SetToken sets the Vault auth token.
 	SetToken(token Token)
-
 	// GetToken returns the Vault auth token.
 	GetToken() Token
 }
@@ -41,7 +40,6 @@ type Method interface {
 type Event struct {
 	// Type indicates the type of the authentication event, either "login" or "renew".
 	Type string
-
 	// Err indicates when there was a problem authenticating with Vault.
 	Err error
 }
@@ -87,13 +85,17 @@ func (c *Client) Login(ctx context.Context) error {
 //
 // See https://www.vaultproject.io/api/auth/token#renew-a-token-self for more information.
 func (c *Client) RenewSelf(ctx context.Context) error {
-	if c.GetToken().Value == "" {
+	token := c.GetToken()
+	if token.Value == "" {
 		return errors.New("token must be set first")
+	}
+	if !token.Renewable {
+		return errors.New("token is not renewable")
 	}
 
 	res, err := c.API.Write(ctx, httpPathAuthTokenRenewSelf, c.GetToken().Value, nil)
 	if err != nil {
-		return fmt.Errorf("failed to perform token renewal request: %w", err)
+		return fmt.Errorf("failed to perform renewedToken renewal request: %w", err)
 	}
 
 	if res.StatusCode != 200 {
@@ -116,12 +118,12 @@ func (c *Client) RenewSelf(ctx context.Context) error {
 		return fmt.Errorf("failed to map request response: %w", err)
 	}
 
-	token := Token{
+	renewedToken := Token{
 		Value:      resBody.Auth.ClientToken,
 		Expiration: time.Duration(resBody.Auth.LeaseDuration) * time.Second,
 		Renewable:  resBody.Auth.Renewable,
 	}
-	c.SetToken(token)
+	c.SetToken(renewedToken)
 
 	return nil
 }
