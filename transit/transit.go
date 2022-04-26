@@ -29,7 +29,7 @@ func (t *Client) Encrypt(ctx context.Context, key string, data []byte) (string, 
 		Plaintext: base64.StdEncoding.EncodeToString(data),
 	}
 
-	res, err := t.API.Write(ctx, httpPathTransitEncrypt+key, t.TokenManager.GetToken().ClientToken, reqBody)
+	res, err := t.API.Write(ctx, httpPathTransitEncrypt+key, t.TokenManager.GetToken().Value, reqBody)
 	if err != nil {
 		return "", fmt.Errorf("failed to perform encryption request: %w", err)
 	}
@@ -75,7 +75,7 @@ func (t *Client) EncryptBatch(ctx context.Context, key string, data ...[]byte) (
 		reqBody.BatchInput = append(reqBody.BatchInput, input)
 	}
 
-	res, err := t.API.Write(ctx, httpPathTransitEncrypt+key, t.TokenManager.GetToken().ClientToken, reqBody)
+	res, err := t.API.Write(ctx, httpPathTransitEncrypt+key, t.TokenManager.GetToken().Value, reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to perform batch encryption request: %w", err)
 	}
@@ -114,7 +114,7 @@ func (t *Client) Decrypt(ctx context.Context, key string, ciphertext string) ([]
 		Ciphertext: ciphertext,
 	}
 
-	res, err := t.API.Write(ctx, httpPathTransitDecrypt+key, t.TokenManager.GetToken().ClientToken, reqBody)
+	res, err := t.API.Write(ctx, httpPathTransitDecrypt+key, t.TokenManager.GetToken().Value, reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to perform decryption request: %w", err)
 	}
@@ -165,7 +165,7 @@ func (t *Client) DecryptBatch(ctx context.Context, key string, ciphertexts ...st
 		reqBody.BatchInput = append(reqBody.BatchInput, input)
 	}
 
-	res, err := t.API.Write(ctx, httpPathTransitDecrypt+key, t.TokenManager.GetToken().ClientToken, reqBody)
+	res, err := t.API.Write(ctx, httpPathTransitDecrypt+key, t.TokenManager.GetToken().Value, reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to perform batch decryption request: %w", err)
 	}

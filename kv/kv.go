@@ -41,7 +41,7 @@ func (c *Client) GetSecret(ctx context.Context, secretPath string) (*Secret, err
 		Data response `json:"data"`
 	}
 
-	res, err := c.API.Read(ctx, httpPathKVSecret+secretPath, c.TokenManager.GetToken().ClientToken)
+	res, err := c.API.Read(ctx, httpPathKVSecret+secretPath, c.TokenManager.GetToken().Value)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get secret: %w", err)
 	}
@@ -78,7 +78,7 @@ func (c *Client) UpsertSecret(ctx context.Context, secretPath string, secret map
 		Data: secret,
 	}
 
-	res, err := c.API.Write(ctx, httpPathKVSecret+secretPath, c.TokenManager.GetToken().ClientToken, req)
+	res, err := c.API.Write(ctx, httpPathKVSecret+secretPath, c.TokenManager.GetToken().Value, req)
 	if err != nil {
 		return fmt.Errorf("failed to store secret: %w", err)
 	}

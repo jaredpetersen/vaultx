@@ -49,10 +49,10 @@ func NewKubernetesAuthMethod(config KubernetesConfig) KubernetesAuthMethod {
 }
 
 // Login generates a Vault token using information about the KubernetesAuthMethod deployment environment.
-func (k KubernetesAuthMethod) Login(ctx context.Context, api api.API) (*Token, error) {
+func (k KubernetesAuthMethod) Login(ctx context.Context, api api.API) (Token, error) {
 	jwt, err := k.Config.JWTProvider()
 	if err != nil {
-		return nil, err
+		return Token{}, err
 	}
 
 	type generateTokenRequest struct {
@@ -67,16 +67,15 @@ func (k KubernetesAuthMethod) Login(ctx context.Context, api api.API) (*Token, e
 
 	res, err := api.Write(ctx, httpPathAuthKubernetesLogin, "", authPayload)
 	if err != nil {
-		return nil, err
+		return Token{}, err
 	}
 
 	if res.StatusCode != 200 {
-		return nil, fmt.Errorf("received invalid status code %d for http request", res.StatusCode)
+		return Token{}, fmt.Errorf("received invalid status code %d for http request", res.StatusCode)
 	}
 
 	type kubernetesAuthResponse struct {
 		ClientToken   string `json:"client_token"`
-		Accessor      string `json:"accessor"`
 		LeaseDuration int    `json:"lease_duration"` // seconds
 		Renewable     bool   `json:"renewable"`
 	}
@@ -88,18 +87,14 @@ func (k KubernetesAuthMethod) Login(ctx context.Context, api api.API) (*Token, e
 	resBody := new(kubernetesAuthResponseWrapper)
 	err = res.JSON(resBody)
 	if err != nil {
-		return nil, err
+		return Token{}, err
 	}
 
 	token := Token{
-		ClientToken: resBody.Auth.ClientToken,
-		Accessor:    resBody.Auth.Accessor,
-		Lease: TokenLease{
-			Duration:  time.Duration(resBody.Auth.LeaseDuration) * time.Second,
-			Renewable: resBody.Auth.Renewable,
-		},
-		Renewable: resBody.Auth.Renewable,
+		Value:      resBody.Auth.ClientToken,
+		Expiration: time.Duration(resBody.Auth.LeaseDuration) * time.Second,
+		Renewable:  resBody.Auth.Renewable,
 	}
 
-	return &token, nil
+	return token, nil
 }

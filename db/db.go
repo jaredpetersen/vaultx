@@ -35,7 +35,7 @@ func (db *Client) GenerateCredentials(ctx context.Context, role string) (*Creden
 		Data credentialsResponse `json:"data"`
 	}
 
-	res, err := db.API.Read(ctx, httpPathDBCredentials+role, db.TokenManager.GetToken().ClientToken)
+	res, err := db.API.Read(ctx, httpPathDBCredentials+role, db.TokenManager.GetToken().Value)
 	if err != nil {
 		return nil, fmt.Errorf("failed to perform database credentials generation request: %w", err)
 	}

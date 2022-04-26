@@ -25,10 +25,10 @@ func TestGenerateCredentialsReturnsCredentials(t *testing.T) {
 
 	// Set up token manager
 	token := auth.Token{
-		ClientToken: "vault token",
+		Value: "vault token",
 	}
 	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(&token, nil)
+	tokenManager.On("GetToken").Return(token, nil)
 
 	generatedUsername := "someusername"
 	generatedPassword := "somepassword"
@@ -47,7 +47,7 @@ func TestGenerateCredentialsReturnsCredentials(t *testing.T) {
 
 	// Set up mock API
 	apic := apimocks.API{}
-	apic.On("Read", ctx, "/v1/database/creds/"+dbRole, token.ClientToken).Return(&res, nil)
+	apic.On("Read", ctx, "/v1/database/creds/"+dbRole, token.Value).Return(&res, nil)
 
 	dbc := db.Client{
 		API:          &apic,
@@ -68,10 +68,10 @@ func TestGenerateCredentialsReturnsErrorOnRequestFailure(t *testing.T) {
 
 	// Set up token manager
 	token := auth.Token{
-		ClientToken: "vault token",
+		Value: "vault token",
 	}
 	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(&token, nil)
+	tokenManager.On("GetToken").Return(token, nil)
 
 	// Set up mocked API request error
 	resErr := errors.New("failed request")
@@ -80,7 +80,7 @@ func TestGenerateCredentialsReturnsErrorOnRequestFailure(t *testing.T) {
 
 	// Set up mock API
 	apic := apimocks.API{}
-	apic.On("Read", ctx, "/v1/database/creds/"+dbRole, token.ClientToken).Return(nil, resErr)
+	apic.On("Read", ctx, "/v1/database/creds/"+dbRole, token.Value).Return(nil, resErr)
 
 	dbc := db.Client{
 		API:          &apic,
@@ -98,10 +98,10 @@ func TestGenerateCredentialsReturnsErrorOnInvalidResponseCode(t *testing.T) {
 
 	// Set up token manager
 	token := auth.Token{
-		ClientToken: "vault token",
+		Value: "vault token",
 	}
 	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(&token, nil)
+	tokenManager.On("GetToken").Return(token, nil)
 
 	// Set up mocked API response with valid body but incorrect status code
 	resBody := "{\"data\": {\"username\": \"someusername\", \"password\": \"somepassword\"}}"
@@ -114,7 +114,7 @@ func TestGenerateCredentialsReturnsErrorOnInvalidResponseCode(t *testing.T) {
 
 	// Set up mock API
 	apic := apimocks.API{}
-	apic.On("Read", ctx, "/v1/database/creds/"+dbRole, token.ClientToken).Return(&res, nil)
+	apic.On("Read", ctx, "/v1/database/creds/"+dbRole, token.Value).Return(&res, nil)
 
 	dbc := db.Client{
 		API:          &apic,
@@ -132,10 +132,10 @@ func TestGenerateCredentialsReturnsErrorOnInvalidJSONResponse(t *testing.T) {
 
 	// Set up token manager
 	token := auth.Token{
-		ClientToken: "vault token",
+		Value: "vault token",
 	}
 	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(&token, nil)
+	tokenManager.On("GetToken").Return(token, nil)
 
 	// Set up mocked API response with invalid JSON
 	resBody := "a}"
@@ -148,7 +148,7 @@ func TestGenerateCredentialsReturnsErrorOnInvalidJSONResponse(t *testing.T) {
 
 	// Set up mock API
 	apic := apimocks.API{}
-	apic.On("Read", ctx, "/v1/database/creds/"+dbRole, token.ClientToken).Return(&res, nil)
+	apic.On("Read", ctx, "/v1/database/creds/"+dbRole, token.Value).Return(&res, nil)
 
 	dbc := db.Client{
 		API:          &apic,
@@ -202,7 +202,7 @@ func TestIntegrationGenerateCredentialsReturnsCredentials(t *testing.T) {
 	authc := auth.Client{
 		API: &apic,
 	}
-	authc.SetToken(&auth.Token{ClientToken: vaultContainer.Token})
+	authc.SetToken(auth.Token{Value: vaultContainer.Token})
 
 	dbc := db.Client{
 		API:          &apic,
@@ -248,7 +248,7 @@ func TestIntegrationGenerateCredentialsReturnsErrorOnInvalidDBEngineConfig(t *te
 	authc := auth.Client{
 		API: &apic,
 	}
-	authc.SetToken(&auth.Token{ClientToken: vaultContainer.Token})
+	authc.SetToken(auth.Token{Value: vaultContainer.Token})
 
 	dbc := db.Client{
 		API:          &apic,
