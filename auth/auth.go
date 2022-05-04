@@ -154,26 +154,31 @@ func (c *Client) Automatic(ctx context.Context) <-chan Event {
 // automaticHelper recursively performs a login or token renew action against Vault and sends any relevant events to
 // the provided events channel.
 func (c *Client) automaticHelper(ctx context.Context, events chan<- Event) {
+	// Non-blocking write to events channel
+	write := func(event Event) {
+		select {
+		case events <- event:
+			// Event written to channel successfully
+		default:
+			// Channel is full, drop the event
+		}
+	}
 	// Login action
 	login := func() {
 		err := c.Login(ctx)
-		if len(events) < cap(events) {
-			if err != nil {
-				events <- Event{Type: "login", Err: fmt.Errorf("failed to generate new token: %w", err)}
-			} else {
-				events <- Event{Type: "login"}
-			}
+		if err != nil {
+			write(Event{Type: "login", Err: fmt.Errorf("failed to generate new token: %w", err)})
+		} else {
+			write(Event{Type: "login"})
 		}
 	}
 	// Renew action
 	renew := func() {
 		err := c.RenewSelf(ctx)
-		if len(events) < cap(events) {
-			if err != nil {
-				events <- Event{Type: "renew", Err: fmt.Errorf("failed to renew token: %w", err)}
-			} else {
-				events <- Event{Type: "renew"}
-			}
+		if err != nil {
+			write(Event{Type: "renew", Err: fmt.Errorf("failed to renew token: %w", err)})
+		} else {
+			write(Event{Type: "renew"})
 		}
 	}
 	// Schedule the provided auth function in the future and then kick off recursion
