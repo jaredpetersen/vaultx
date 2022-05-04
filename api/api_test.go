@@ -47,7 +47,7 @@ func TestWriteSendsPostRequest(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 
-		require.Equal(t, http.MethodPost, r.Method, "Incorrect HTTP method")
+		require.Equal(t, http.MethodPost, r.Method, "Incorrect HTTP k8s")
 		require.Equal(t, vaultToken, r.Header.Get(vaultTokenHeader))
 
 		body := new(dummyRequestBody)
@@ -91,7 +91,7 @@ func TestWriteSendsPostRequestNoBody(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 
-		require.Equal(t, http.MethodPost, r.Method, "Incorrect HTTP method")
+		require.Equal(t, http.MethodPost, r.Method, "Incorrect HTTP k8s")
 		require.Equal(t, vaultToken, r.Header.Get(vaultTokenHeader))
 
 		require.NotEmpty(t, r.Body, "Body is not empty")
@@ -128,7 +128,7 @@ func TestWriteSendsPostRequestNoAuth(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 
-		require.Equal(t, http.MethodPost, r.Method, "Incorrect HTTP method")
+		require.Equal(t, http.MethodPost, r.Method, "Incorrect HTTP k8s")
 		require.Empty(t, r.Header.Get(vaultTokenHeader))
 
 		require.NotEmpty(t, r.Body, "Body is not empty")
@@ -225,7 +225,7 @@ func TestReadSendsGetRequest(t *testing.T) {
 	statusCode := 200
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, http.MethodGet, r.Method, "Incorrect HTTP method")
+		require.Equal(t, http.MethodGet, r.Method, "Incorrect HTTP k8s")
 		require.Equal(t, vaultToken, r.Header.Get(vaultTokenHeader))
 
 		dummyBytes, _ := json.Marshal(resBody)
@@ -265,7 +265,7 @@ func TestReadSendsGetRequestNoAuth(t *testing.T) {
 	statusCode := 200
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, http.MethodGet, r.Method, "Incorrect HTTP method")
+		require.Equal(t, http.MethodGet, r.Method, "Incorrect HTTP k8s")
 		require.Empty(t, r.Header.Get(vaultTokenHeader))
 
 		dummyBytes, _ := json.Marshal(resBody)
