@@ -21,3 +21,5 @@ jobs:
         run: make check
       - name: Test
         run: make test
+# TODO play with this some more -- ideally we'd build on every branch and then release only on main
+# Go-health has this as two workflows
