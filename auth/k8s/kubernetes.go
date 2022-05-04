@@ -17,8 +17,8 @@ type Config struct {
 	// Role is the AuthMethod service account role that should be used to authenticate with Vault.
 	Role string
 
-	// JWTProvider is an optional field used to override how the AuthMethod auth k8s gets the service account JWT
-	// used to authenticate with Vault. If omitted, the client will read the JWT from the
+	// JWTProvider is an optional field used to override how the Kubernetes service account JWT is retrieved for use
+	// when authenticating with Vault. If omitted, the client will read the JWT from the
 	// `/var/run/secrets/kubernetes.io/serviceaccount/token` file.
 	JWTProvider func() (string, error)
 }
@@ -26,7 +26,7 @@ type Config struct {
 // AuthMethod enables the Vault client to use information about your AuthMethod deployment environment to
 // authenticate itself with Vault.
 //
-// See https://www.vaultproject.io/api-docs/auth/kubernetes for more information on the AuthMethod auth k8s.
+// See https://www.vaultproject.io/api-docs/auth/kubernetes for more information on the Kubernetes auth method.
 type AuthMethod struct {
 	Config Config
 }

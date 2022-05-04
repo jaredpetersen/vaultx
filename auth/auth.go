@@ -73,7 +73,7 @@ func (c *Client) GetToken() Token {
 	return c.token
 }
 
-// Login authenticates against Vault using the configured auth k8s and sets the internal auth token that the client
+// Login authenticates against Vault using the configured auth method and sets the internal auth token that the client
 // uses to communicate with Vault.
 func (c *Client) Login(ctx context.Context) error {
 	token, err := c.AuthMethod.Login(ctx, c.API)
@@ -134,7 +134,7 @@ func (c *Client) RenewSelf(ctx context.Context) error {
 	return nil
 }
 
-// Automatic handles login and renewal automatically for you in the background using the configured auth k8s.
+// Automatic handles login and renewal automatically for you in the background using the configured auth method.
 //
 // Tokens are renewed 5 seconds before expiration if eligible. If a lease is less than 5 seconds long, the token will
 // be replaced instead of attempting renewal.
