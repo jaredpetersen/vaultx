@@ -35,3 +35,4 @@ jobs:
           body: ${{ steps.changelog.outputs.changes }}
           prerelease: ${{ steps.changelog_reader.outputs.status == 'prereleased' }}
           draft: ${{ steps.changelog_reader.outputs.status == 'unreleased' }}
+          allowUpdates: false
