@@ -24,4 +24,15 @@ jobs:
         run: make check
       - name: Test
         run: make test
-      # TODO set up changelog read and release generation when we're ready to go live
+      - name: Get Changelog
+        id: changelog
+        uses: mindsers/changelog-reader-action@v2
+      - name: Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: v${{ steps.changelog.outputs.version }}
+          name: v${{ steps.changelog.outputs.version }}
+          body: ${{ steps.changelog.outputs.changes }}
+          prerelease: ${{ steps.changelog_reader.outputs.status == 'prereleased' }}
+          draft: ${{ steps.changelog_reader.outputs.status == 'unreleased' }}
+          allowUpdates: false
