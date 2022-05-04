@@ -2,7 +2,9 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/jaredpetersen/vaultx/api"
@@ -12,49 +14,33 @@ import (
 //
 // This is used throughout vaultx to authenticate with Vault.
 type Token struct {
-	// ClientToken is a string representation of the token, used when interacting with the Vault Client.
-	ClientToken string
-
-	// Accessor is a unique identifier for the Vault token but is not useful as an authentication mechanism.
-	Accessor string
-
-	// Lease indicates when the token expires and must be renewed or regenerated.
-	Lease TokenLease
-
+	// Value is a string representation of the token, used when interacting with the Vault Client.
+	Value string
+	// Expiration indicates when the token expires and must be renewed or regenerated.
+	Expiration time.Duration
 	// Renewable indicates whether the token can be renewed or must be regenerated.
-	Renewable bool
-}
-
-// TokenLease provides information about how long the token will last.
-type TokenLease struct {
-	// Duration indicates when the token expires and must be renewed or regenerated.
-	Duration time.Duration
-
-	// Renewable indicates if the lease can be renewed.
 	Renewable bool
 }
 
 // TokenManager manages Vault auth tokens.
 type TokenManager interface {
 	// SetToken sets the Vault auth token.
-	SetToken(token *Token)
-
+	SetToken(token Token)
 	// GetToken returns the Vault auth token.
-	GetToken() *Token
+	GetToken() Token
 }
 
 // Method represents a way of authenticating against Vault using one of the officially supported techniques.
 //
 // For more information, see https://www.vaultproject.io/docs/auth
 type Method interface {
-	Login(ctx context.Context, api api.API) (*Token, error)
+	Login(ctx context.Context, api api.API) (Token, error)
 }
 
 // Event is used to communicate authentication happenings.
 type Event struct {
 	// Type indicates the type of the authentication event, either "login" or "renew".
 	Type string
-
 	// Err indicates when there was a problem authenticating with Vault.
 	Err error
 }
@@ -65,7 +51,8 @@ type Event struct {
 type Client struct {
 	API        api.API
 	AuthMethod Method
-	token      *Token
+	token      Token
+	tokenMtx   sync.RWMutex
 }
 
 const httpPathAuthTokenRenewSelf = "/v1/auth/token/renew-self"
@@ -73,12 +60,16 @@ const httpPathAuthTokenRenewSelf = "/v1/auth/token/renew-self"
 // SetToken sets the internal Vault auth token that the client uses to communicate with Vault.
 //
 // This should be called after authenticating with Vault so that the client may make requests.
-func (c *Client) SetToken(token *Token) {
+func (c *Client) SetToken(token Token) {
+	c.tokenMtx.Lock()
+	defer c.tokenMtx.Unlock()
 	c.token = token
 }
 
 // GetToken returns the internal Vault auth token that the client uses to communicate with Vault.
-func (c *Client) GetToken() *Token {
+func (c *Client) GetToken() Token {
+	c.tokenMtx.RLock()
+	defer c.tokenMtx.RUnlock()
 	return c.token
 }
 
@@ -100,9 +91,17 @@ func (c *Client) Login(ctx context.Context) error {
 //
 // See https://www.vaultproject.io/api/auth/token#renew-a-token-self for more information.
 func (c *Client) RenewSelf(ctx context.Context) error {
-	res, err := c.API.Write(ctx, httpPathAuthTokenRenewSelf, c.GetToken().ClientToken, nil)
+	token := c.GetToken()
+	if token.Value == "" {
+		return errors.New("token must be set first")
+	}
+	if !token.Renewable {
+		return errors.New("token is not renewable")
+	}
+
+	res, err := c.API.Write(ctx, httpPathAuthTokenRenewSelf, c.GetToken().Value, nil)
 	if err != nil {
-		return fmt.Errorf("failed to perform token renewal request: %w", err)
+		return fmt.Errorf("failed to perform renewedToken renewal request: %w", err)
 	}
 
 	if res.StatusCode != 200 {
@@ -110,83 +109,108 @@ func (c *Client) RenewSelf(ctx context.Context) error {
 	}
 
 	type authResponse struct {
-		ClientToken string `json:"client_token"`
+		ClientToken   string `json:"client_token"`
+		LeaseDuration int    `json:"lease_duration"`
+		Renewable     bool   `json:"renewable"`
 	}
 
 	type authResponseWrapper struct {
 		Auth authResponse `json:"auth"`
 	}
 
-	authJSON := new(authResponseWrapper)
-	err = res.JSON(authJSON)
+	resBody := new(authResponseWrapper)
+	err = res.JSON(resBody)
 	if err != nil {
 		return fmt.Errorf("failed to map request response: %w", err)
 	}
 
-	return nil
-}
-
-// Automatic handles login and renewal automatically for you using the configured auth method.
-//
-// If there's an issue with authenticating against Vault for the first time, an error will be returned immediately.
-// Otherwise, token renewal and replacement will happen automatically in the background using a goroutine and errors
-// are completely ignored.
-//
-// If a log function is provided, authentication events and errors will be provided as an argument.
-func (c *Client) Automatic(ctx context.Context, log func(event Event)) error {
-	// Establish initial Vault credentials
-	err := c.Login(ctx)
-	if err != nil {
-		return err
+	renewedToken := Token{
+		Value:      resBody.Auth.ClientToken,
+		Expiration: time.Duration(resBody.Auth.LeaseDuration) * time.Second,
+		Renewable:  resBody.Auth.Renewable,
 	}
-
-	// Initial login event
-	log(Event{Type: "login"})
-
-	// Start renewing and re-generating Vault credentials automatically based on the lease period
-	c.renewOrReplace(ctx, log)
+	c.SetToken(renewedToken)
 
 	return nil
 }
 
-// renewOrReplace recursively renews the auth client's token or replaces it if the token lease is no longer renewable.
+// Automatic handles login and renewal automatically for you in the background using the configured auth method.
 //
-// This is handled through the use of time.AfterFunc, which executes the renew or regeneration logic 10 seconds before
-// the token renew time is up.
+// Tokens are renewed 5 seconds before expiration if eligible. If a lease is less than 5 seconds long, the token will
+// be replaced instead of attempting renewal.
 //
-// If an error is encountered, it is logged if applicable and ignored.
-func (c *Client) renewOrReplace(ctx context.Context, log func(event Event)) {
-	lease := c.GetToken().Lease
-	renewTime := lease.Duration - 10*time.Second
+// All login and renewal events and any associated errors are sent to the returned events channel. This channel haas a
+// buffer of 1 to help the event receiver keep up with the events. If the channel is ignored or events are not
+// received quickly enough, events will be dropped and not sent to the channel to avoid impeding the authentication
+// process.
+//
+// In the event that the context is canceled, login and renewals will be halted and the events channel will be closed.
+func (c *Client) Automatic(ctx context.Context) <-chan Event {
+	events := make(chan Event, 1)
+	c.automaticHelper(ctx, events)
+	return events
+}
 
-	// Stop if the context has been closed
-	if ctx.Err() != nil {
-		return
+// automaticHelper recursively performs a login or token renew action against Vault and sends any relevant events to
+// the provided events channel.
+func (c *Client) automaticHelper(ctx context.Context, events chan<- Event) {
+	// Non-blocking write to events channel
+	write := func(event Event) {
+		select {
+		case events <- event:
+			// Event written to channel successfully
+		default:
+			// Channel is full, drop the event
+		}
 	}
-
-	if lease.Renewable && (renewTime > 5*time.Second) {
-		// Renew lease
-		time.AfterFunc(renewTime, func() {
-			err := c.RenewSelf(ctx)
-			if err != nil && log != nil {
-				log(Event{Type: "renew", Err: fmt.Errorf("failed to renew token: %w", err)})
-			} else if log != nil {
-				log(Event{Type: "renew"})
+	// Login action
+	login := func() {
+		err := c.Login(ctx)
+		if err != nil {
+			write(Event{Type: "login", Err: fmt.Errorf("failed to generate new token: %w", err)})
+		} else {
+			write(Event{Type: "login"})
+		}
+	}
+	// Renew action
+	renew := func() {
+		err := c.RenewSelf(ctx)
+		if err != nil {
+			write(Event{Type: "renew", Err: fmt.Errorf("failed to renew token: %w", err)})
+		} else {
+			write(Event{Type: "renew"})
+		}
+	}
+	// Schedule the provided auth function in the future and then kick off recursion
+	schedule := func(after time.Duration, auth func()) {
+		timer := time.NewTimer(after)
+		go func() {
+			select {
+			case <-timer.C:
+				auth()
+				c.automaticHelper(ctx, events)
+			case <-ctx.Done():
+				timer.Stop()
+				close(events)
+				return
 			}
+		}()
+	}
 
-			c.renewOrReplace(ctx, log)
-		})
+	token := c.GetToken()
+	renewable := token.Renewable
+
+	// Get fresh Vault authentication 5 seconds before the token's expiration
+	// If this produces a negative schedule time, the token should not be renewed and the login action should be taken
+	waitRefresh := token.Expiration - 5*time.Second
+	if waitRefresh < 0 {
+		renewable = false
+		waitRefresh = 0
+	}
+
+	if renewable {
+		schedule(waitRefresh, renew)
 	} else {
-		// Replace lease
-		time.AfterFunc(renewTime, func() {
-			err := c.Login(ctx)
-			if err != nil && log != nil {
-				log(Event{Type: "login", Err: fmt.Errorf("failed to generate new token: %w", err)})
-			} else if log != nil {
-				log(Event{Type: "login"})
-			}
-
-			c.renewOrReplace(ctx, log)
-		})
+		schedule(waitRefresh, login)
 	}
 }

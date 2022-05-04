@@ -27,10 +27,10 @@ func TestGetSecretReturnsSecret(t *testing.T) {
 
 	// Set up token manager
 	token := auth.Token{
-		ClientToken: "vault token",
+		Value: "vault token",
 	}
 	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(&token, nil)
+	tokenManager.On("GetToken").Return(token, nil)
 
 	secretData := map[string]interface{}{
 		"username": "dbuser",
@@ -53,7 +53,7 @@ func TestGetSecretReturnsSecret(t *testing.T) {
 
 	// Set up mock API
 	apic := apimocks.API{}
-	apic.On("Read", ctx, "/v1/secret/data/"+secretPath, token.ClientToken).Return(&res, nil)
+	apic.On("Read", ctx, "/v1/secret/data/"+secretPath, token.Value).Return(&res, nil)
 
 	kvc := kv.Client{
 		API:          &apic,
@@ -76,10 +76,10 @@ func TestGetSecretReturnsErrorOnRequestFailure(t *testing.T) {
 
 	// Set up token manager
 	token := auth.Token{
-		ClientToken: "vault token",
+		Value: "vault token",
 	}
 	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(&token, nil)
+	tokenManager.On("GetToken").Return(token, nil)
 
 	// Set up mocked API request error
 	resErr := errors.New("failed request")
@@ -88,7 +88,7 @@ func TestGetSecretReturnsErrorOnRequestFailure(t *testing.T) {
 
 	// Set up mock API
 	apic := apimocks.API{}
-	apic.On("Read", ctx, "/v1/secret/data/"+secretPath, token.ClientToken).Return(nil, resErr)
+	apic.On("Read", ctx, "/v1/secret/data/"+secretPath, token.Value).Return(nil, resErr)
 
 	kvc := kv.Client{
 		API:          &apic,
@@ -106,10 +106,10 @@ func TestGetSecretReturnsErrorOnInvalidResponseCode(t *testing.T) {
 
 	// Set up token manager
 	token := auth.Token{
-		ClientToken: "vault token",
+		Value: "vault token",
 	}
 	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(&token, nil)
+	tokenManager.On("GetToken").Return(token, nil)
 
 	secretData := map[string]interface{}{
 		"username": "dbuser",
@@ -132,7 +132,7 @@ func TestGetSecretReturnsErrorOnInvalidResponseCode(t *testing.T) {
 
 	// Set up mock API
 	apic := apimocks.API{}
-	apic.On("Read", ctx, "/v1/secret/data/"+secretPath, token.ClientToken).Return(&res, nil)
+	apic.On("Read", ctx, "/v1/secret/data/"+secretPath, token.Value).Return(&res, nil)
 
 	kvc := kv.Client{
 		API:          &apic,
@@ -150,10 +150,10 @@ func TestGetSecretReturnsErrorOnInvalidJSONResponse(t *testing.T) {
 
 	// Set up token manager
 	token := auth.Token{
-		ClientToken: "vault token",
+		Value: "vault token",
 	}
 	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(&token, nil)
+	tokenManager.On("GetToken").Return(token, nil)
 
 	// Set up mocked API response with invalid JSON
 	resBody := "a}"
@@ -166,7 +166,7 @@ func TestGetSecretReturnsErrorOnInvalidJSONResponse(t *testing.T) {
 
 	// Set up mock API
 	apic := apimocks.API{}
-	apic.On("Read", ctx, "/v1/secret/data/"+secretPath, token.ClientToken).Return(&res, nil)
+	apic.On("Read", ctx, "/v1/secret/data/"+secretPath, token.Value).Return(&res, nil)
 
 	kvc := kv.Client{
 		API:          &apic,
@@ -183,10 +183,10 @@ func TestUpsertSecretDoesNotReturnError(t *testing.T) {
 
 	// Set up token manager
 	token := auth.Token{
-		ClientToken: "vault token",
+		Value: "vault token",
 	}
 	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(&token, nil)
+	tokenManager.On("GetToken").Return(token, nil)
 
 	// Set up mocked API response
 	resBody := "{\"data\": {\"version\": 493}}"
@@ -203,7 +203,7 @@ func TestUpsertSecretDoesNotReturnError(t *testing.T) {
 
 	// Set up mock API
 	apic := apimocks.API{}
-	apic.On("Write", ctx, "/v1/secret/data/"+secretPath, token.ClientToken, mock.MatchedBy(func(input interface{}) bool {
+	apic.On("Write", ctx, "/v1/secret/data/"+secretPath, token.Value, mock.MatchedBy(func(input interface{}) bool {
 		expectedReqBody := fmt.Sprintf(
 			"{\"data\": {\"username\": \"%s\", \"password\": \"%s\"}}",
 			secretData["username"],
@@ -226,10 +226,10 @@ func TestUpsertSecretReturnsErrorOnRequestFailure(t *testing.T) {
 
 	// Set up token manager
 	token := auth.Token{
-		ClientToken: "vault token",
+		Value: "vault token",
 	}
 	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(&token, nil)
+	tokenManager.On("GetToken").Return(token, nil)
 
 	// Set up mocked API request error
 	resErr := errors.New("failed request")
@@ -242,7 +242,7 @@ func TestUpsertSecretReturnsErrorOnRequestFailure(t *testing.T) {
 
 	// Set up mock API
 	apic := apimocks.API{}
-	apic.On("Write", ctx, "/v1/secret/data/"+secretPath, token.ClientToken, mock.Anything).Return(nil, resErr)
+	apic.On("Write", ctx, "/v1/secret/data/"+secretPath, token.Value, mock.Anything).Return(nil, resErr)
 
 	kvc := kv.Client{
 		API:          &apic,
@@ -259,10 +259,10 @@ func TestUpsertSecretReturnsErrorOnInvalidResponseCode(t *testing.T) {
 
 	// Set up token manager
 	token := auth.Token{
-		ClientToken: "vault token",
+		Value: "vault token",
 	}
 	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(&token, nil)
+	tokenManager.On("GetToken").Return(token, nil)
 
 	// Set up mocked API response with valid body but incorrect status code
 	resBody := "{\"data\": {\"version\": 493}}"
@@ -279,7 +279,7 @@ func TestUpsertSecretReturnsErrorOnInvalidResponseCode(t *testing.T) {
 
 	// Set up mock API
 	apic := apimocks.API{}
-	apic.On("Write", ctx, "/v1/secret/data/"+secretPath, token.ClientToken, mock.Anything).Return(&res, nil)
+	apic.On("Write", ctx, "/v1/secret/data/"+secretPath, token.Value, mock.Anything).Return(&res, nil)
 
 	kvc := kv.Client{
 		API:          &apic,
@@ -296,10 +296,10 @@ func TestUpsertSecretReturnsErrorOnInvalidJSONResponse(t *testing.T) {
 
 	// Set up token manager
 	token := auth.Token{
-		ClientToken: "vault token",
+		Value: "vault token",
 	}
 	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(&token, nil)
+	tokenManager.On("GetToken").Return(token, nil)
 
 	// Set up mocked API response with invalid JSON
 	resBody := "a}"
@@ -316,7 +316,7 @@ func TestUpsertSecretReturnsErrorOnInvalidJSONResponse(t *testing.T) {
 
 	// Set up mock API
 	apic := apimocks.API{}
-	apic.On("Write", ctx, "/v1/secret/data/"+secretPath, token.ClientToken, mock.Anything).Return(&res, nil)
+	apic.On("Write", ctx, "/v1/secret/data/"+secretPath, token.Value, mock.Anything).Return(&res, nil)
 
 	kvc := kv.Client{
 		API:          &apic,
@@ -346,7 +346,7 @@ func TestIntegrationUpsertSecretDoesNotReturnError(t *testing.T) {
 	authc := auth.Client{
 		API: &apic,
 	}
-	authc.SetToken(&auth.Token{ClientToken: vaultContainer.Token})
+	authc.SetToken(auth.Token{Value: vaultContainer.Token})
 
 	kvc := kv.Client{
 		API:          &apic,
@@ -382,7 +382,7 @@ func TestIntegrationUpsertGetSecretReturnsSecret(t *testing.T) {
 	authc := auth.Client{
 		API: &apic,
 	}
-	authc.SetToken(&auth.Token{ClientToken: vaultContainer.Token})
+	authc.SetToken(auth.Token{Value: vaultContainer.Token})
 
 	kvc := kv.Client{
 		API:          &apic,
@@ -428,7 +428,7 @@ func TestIntegrationGetSecretReturnsEmptyForMissingSecret(t *testing.T) {
 	authc := auth.Client{
 		API: &apic,
 	}
-	authc.SetToken(&auth.Token{ClientToken: vaultContainer.Token})
+	authc.SetToken(auth.Token{Value: vaultContainer.Token})
 
 	kvc := kv.Client{
 		API:          &apic,

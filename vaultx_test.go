@@ -146,7 +146,7 @@ func TestIntegrationDBGenerateCredentialsReturnsCredentials(t *testing.T) {
 
 	cfg := vaultx.NewConfig(vaultContainer.URI)
 	vltx := vaultx.New(cfg)
-	vltx.Auth.SetToken(&vaultxauth.Token{ClientToken: vaultContainer.Token})
+	vltx.Auth.SetToken(vaultxauth.Token{Value: vaultContainer.Token})
 
 	dbCredentials, err := vltx.DB.GenerateCredentials(ctx, dbRole)
 	require.NoError(t, err, "Credential generation failure")
@@ -171,7 +171,7 @@ func TestIntegrationKVUpsertGetSecretReturnsSecret(t *testing.T) {
 
 	cfg := vaultx.NewConfig(vaultContainer.URI)
 	vltx := vaultx.New(cfg)
-	vltx.Auth.SetToken(&vaultxauth.Token{ClientToken: vaultContainer.Token})
+	vltx.Auth.SetToken(vaultxauth.Token{Value: vaultContainer.Token})
 
 	secretPath := "mypath"
 	secretData := map[string]interface{}{
@@ -213,7 +213,7 @@ func TestIntegrationTransitEncryptEncryptsData(t *testing.T) {
 
 	cfg := vaultx.NewConfig(vaultContainer.URI)
 	vltx := vaultx.New(cfg)
-	vltx.Auth.SetToken(&vaultxauth.Token{ClientToken: vaultContainer.Token})
+	vltx.Auth.SetToken(vaultxauth.Token{Value: vaultContainer.Token})
 
 	plaintext := "this is my secret"
 	encrypted, err := vltx.Transit.Encrypt(ctx, transitKey, []byte(plaintext))
@@ -242,7 +242,7 @@ func TestIntegrationTransitEncryptBatchEncryptsData(t *testing.T) {
 
 	cfg := vaultx.NewConfig(vaultContainer.URI)
 	vltx := vaultx.New(cfg)
-	vltx.Auth.SetToken(&vaultxauth.Token{ClientToken: vaultContainer.Token})
+	vltx.Auth.SetToken(vaultxauth.Token{Value: vaultContainer.Token})
 
 	secretA := "this is my secret"
 	secretB := "this is another secret"
@@ -278,7 +278,7 @@ func TestIntegrationTransitDecryptDecryptsData(t *testing.T) {
 
 	cfg := vaultx.NewConfig(vaultContainer.URI)
 	vltx := vaultx.New(cfg)
-	vltx.Auth.SetToken(&vaultxauth.Token{ClientToken: vaultContainer.Token})
+	vltx.Auth.SetToken(vaultxauth.Token{Value: vaultContainer.Token})
 
 	plaintext := "this is my secret"
 
@@ -312,7 +312,7 @@ func TestIntegrationTransitDecryptBatchDecryptsData(t *testing.T) {
 
 	cfg := vaultx.NewConfig(vaultContainer.URI)
 	vltx := vaultx.New(cfg)
-	vltx.Auth.SetToken(&vaultxauth.Token{ClientToken: vaultContainer.Token})
+	vltx.Auth.SetToken(vaultxauth.Token{Value: vaultContainer.Token})
 
 	secretA := "this is my secret"
 	secretB := "this is another secret"
