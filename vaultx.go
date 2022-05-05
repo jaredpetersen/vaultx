@@ -15,33 +15,49 @@ import (
 
 // Client is a resource for interacting with Vault.
 type Client struct {
-	http *http.Client
-
 	// Config configures how the Vault client will interact with Vault.
 	Config *Config
 
-	// API is a direct client to the Vault HTTP engine, enabling manual execution against Vault.
-	API *api.Client
+	http *http.Client
 
-	// Auth is a gateway into Vault authentication.
-	//
-	// See https://www.vaultproject.io/api-docs/auth for more information.
-	Auth *auth.Client
+	api     *api.Client
+	auth    *auth.Client
+	kv      *kv.Client
+	transit *transit.Client
+	db      *db.Client
+}
 
-	// KV is a gateway into the key-value secrets engine.
-	//
-	// For more information, see https://www.vaultproject.io/docs/secrets/kv.
-	KV *kv.Client
+// API is a direct client to the Vault HTTP engine, enabling manual execution against Vault.
+func (c *Client) API() *api.Client {
+	return c.api
+}
 
-	// Transit is a gateway into the transit secrets engine.
-	//
-	// For more information, see https://www.vaultproject.io/docs/secrets/transit.
-	Transit *transit.Client
+// Auth is a gateway into Vault authentication.
+//
+// See https://www.vaultproject.io/api-docs/auth for more information.
+func (c *Client) Auth() *auth.Client {
+	return c.auth
+}
 
-	// DB is a gateway into the database secrets engine.
-	//
-	// For more information, see https://www.vaultproject.io/docs/secrets/databases.
-	DB *db.Client
+// KV is a gateway into the key-value secrets engine.
+//
+// For more information, see https://www.vaultproject.io/docs/secrets/kv.
+func (c *Client) KV() *kv.Client {
+	return c.kv
+}
+
+// Transit is a gateway into the transit secrets engine.
+//
+// For more information, see https://www.vaultproject.io/docs/secrets/transit.
+func (c *Client) Transit() *transit.Client {
+	return c.transit
+}
+
+// DB is a gateway into the database secrets engine.
+//
+// For more information, see https://www.vaultproject.io/docs/secrets/databases.
+func (c *Client) DB() *db.Client {
+	return c.db
 }
 
 // New creates a new Vault client.
@@ -80,10 +96,10 @@ func New(config Config) *Client {
 	return &Client{
 		Config:  &config,
 		http:    httpClient,
-		API:     apiClient,
-		Auth:    authClient,
-		KV:      kvClient,
-		Transit: transitClient,
-		DB:      dbClient,
+		api:     apiClient,
+		auth:    authClient,
+		kv:      kvClient,
+		transit: transitClient,
+		db:      dbClient,
 	}
 }

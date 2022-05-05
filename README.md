@@ -24,7 +24,7 @@ import (
 	"os"
 
 	"github.com/jaredpetersen/vaultx"
-	vaultxauth "github.com/jaredpetersen/vaultx/auth"
+	vaultxauth "github.com/jaredpetersen/vaultx/auth/k8s"
 )
 
 const k8sRole = "my-app"
@@ -35,11 +35,11 @@ func main() {
 	ctx := context.Background()
 
 	cfg := vaultx.NewConfig("https://vault.mydomain.com")
-	cfg.Auth.Method = vaultxauth.NewKubernetesAuthMethod(vaultxauth.KubernetesConfig{Role: k8sRole})
+	cfg.Auth.Method = vaultxauth.New(vaultxauth.Config{Role: k8sRole})
 
 	vltx := vaultx.New(cfg)
 
-	err := vltx.Auth.Login(ctx)
+	err := vltx.Auth().Login(ctx)
 	if err != nil {
 		fmt.Println("Failed to authenticate against Vault")
 		os.Exit(1)
@@ -50,14 +50,14 @@ func main() {
 		"username": "dbuser",
 		"password": "3hvu2ZLxwauHrNaZjJbJARHE",
 	}
-	err = vltx.KV.UpsertSecret(ctx, vaultKVSecretPath, secretData)
+	err = vltx.KV().UpsertSecret(ctx, vaultKVSecretPath, secretData)
 	if err != nil {
 		fmt.Println("Failed to store secret")
 		os.Exit(1)
 	}
 
 	// Get secret
-	secret, err := vltx.KV.GetSecret(ctx, vaultKVSecretPath)
+	secret, err := vltx.KV().GetSecret(ctx, vaultKVSecretPath)
 	if err != nil {
 		fmt.Println("Failed to retrieve secret")
 		os.Exit(1)
@@ -68,7 +68,7 @@ func main() {
 
 	// Encrypt data
 	plaintext := "encrypt me"
-	encrypted, err := vltx.Transit.Encrypt(ctx, vaultTransitKey, []byte(plaintext))
+	encrypted, err := vltx.Transit().Encrypt(ctx, vaultTransitKey, []byte(plaintext))
 	if err != nil {
 		fmt.Println("Failed to encrypt data")
 		os.Exit(1)
@@ -77,7 +77,7 @@ func main() {
 	fmt.Printf("encrypted: %s\n", encrypted)
 
 	// Decrypt data
-	decrypted, err := vltx.Transit.Decrypt(ctx, vaultTransitKey, encrypted)
+	decrypted, err := vltx.Transit().Decrypt(ctx, vaultTransitKey, encrypted)
 	if err != nil {
 		fmt.Println("Failed to decrypt data")
 		os.Exit(1)
