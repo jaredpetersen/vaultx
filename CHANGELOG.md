@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Fixed
 - Flaky tests
+- Formatting check in CI to check imports
 
 ## [0.0.2] - 2022-05-04
 ### Added
