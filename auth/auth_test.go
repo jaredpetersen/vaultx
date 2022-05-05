@@ -470,8 +470,9 @@ func TestAutomaticRenewsTokenOnTime(t *testing.T) {
 		duration := end.Sub(start)
 
 		// Renewal is 5 seconds before expiration, so an expiration of 5 seconds means a renewal every 1 second
-		assert.Less(t, duration, 2*time.Second, "Renewal took too long")
-		assert.GreaterOrEqual(t, duration, 1*time.Second, "Renewal was too fast")
+		// Time scheduling isn't exact, so allow some variability
+		assert.Greater(t, duration, 500*time.Millisecond, "Renewal took too long")
+		assert.Less(t, duration, 1500*time.Millisecond, "Renewal was too fast")
 	}
 }
 

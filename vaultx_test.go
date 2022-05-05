@@ -32,7 +32,7 @@ func TestIntegrationAPIReadSendsGetRequest(t *testing.T) {
 
 	path := "/v1/sys/health"
 
-	res, err := vltx.API.Read(ctx, path, vaultContainer.Token)
+	res, err := vltx.API().Read(ctx, path, vaultContainer.Token)
 	require.NoError(t, err, "Error exists")
 	require.NotEmpty(t, res, "Response is empty")
 
@@ -84,7 +84,7 @@ func TestIntegrationAPIWriteSendsPostRequest(t *testing.T) {
 		},
 	}
 
-	res, err := vltx.API.Write(ctx, path, vaultContainer.Token, req)
+	res, err := vltx.API().Write(ctx, path, vaultContainer.Token, req)
 	require.NoError(t, err, "Error exists")
 	require.NotEmpty(t, res, "Response is empty")
 
@@ -146,9 +146,9 @@ func TestIntegrationDBGenerateCredentialsReturnsCredentials(t *testing.T) {
 
 	cfg := vaultx.NewConfig(vaultContainer.URI)
 	vltx := vaultx.New(cfg)
-	vltx.Auth.SetToken(vaultxauth.Token{Value: vaultContainer.Token})
+	vltx.Auth().SetToken(vaultxauth.Token{Value: vaultContainer.Token})
 
-	dbCredentials, err := vltx.DB.GenerateCredentials(ctx, dbRole)
+	dbCredentials, err := vltx.DB().GenerateCredentials(ctx, dbRole)
 	require.NoError(t, err, "Credential generation failure")
 	require.NotEmpty(t, dbCredentials, "Credentials are empty")
 	require.NotEmpty(t, dbCredentials.Username, "Username is empty")
@@ -171,7 +171,7 @@ func TestIntegrationKVUpsertGetSecretReturnsSecret(t *testing.T) {
 
 	cfg := vaultx.NewConfig(vaultContainer.URI)
 	vltx := vaultx.New(cfg)
-	vltx.Auth.SetToken(vaultxauth.Token{Value: vaultContainer.Token})
+	vltx.Auth().SetToken(vaultxauth.Token{Value: vaultContainer.Token})
 
 	secretPath := "mypath"
 	secretData := map[string]interface{}{
@@ -179,7 +179,7 @@ func TestIntegrationKVUpsertGetSecretReturnsSecret(t *testing.T) {
 		"password": "3hvu2ZLxwauHrNaZjJbJARHE",
 	}
 
-	err = vltx.KV.UpsertSecret(ctx, secretPath, secretData)
+	err = vltx.KV().UpsertSecret(ctx, secretPath, secretData)
 	require.NoError(t, err, "Upsert failure")
 
 	expectedSecret := kv.Secret{
@@ -187,7 +187,7 @@ func TestIntegrationKVUpsertGetSecretReturnsSecret(t *testing.T) {
 		Version: 1,
 	}
 
-	secret, err := vltx.KV.GetSecret(ctx, secretPath)
+	secret, err := vltx.KV().GetSecret(ctx, secretPath)
 	require.NoError(t, err, "Get failure")
 	require.NotEmpty(t, secret, "Secret is empty")
 	require.Equal(t, expectedSecret, *secret, "Secret is incorrect")
@@ -213,10 +213,10 @@ func TestIntegrationTransitEncryptEncryptsData(t *testing.T) {
 
 	cfg := vaultx.NewConfig(vaultContainer.URI)
 	vltx := vaultx.New(cfg)
-	vltx.Auth.SetToken(vaultxauth.Token{Value: vaultContainer.Token})
+	vltx.Auth().SetToken(vaultxauth.Token{Value: vaultContainer.Token})
 
 	plaintext := "this is my secret"
-	encrypted, err := vltx.Transit.Encrypt(ctx, transitKey, []byte(plaintext))
+	encrypted, err := vltx.Transit().Encrypt(ctx, transitKey, []byte(plaintext))
 	require.NoError(t, err, "Encryption failure")
 	require.NotEmpty(t, encrypted, "Encrypted value is empty")
 	require.True(t, strings.HasPrefix(encrypted, "vault:v1:"))
@@ -242,13 +242,13 @@ func TestIntegrationTransitEncryptBatchEncryptsData(t *testing.T) {
 
 	cfg := vaultx.NewConfig(vaultContainer.URI)
 	vltx := vaultx.New(cfg)
-	vltx.Auth.SetToken(vaultxauth.Token{Value: vaultContainer.Token})
+	vltx.Auth().SetToken(vaultxauth.Token{Value: vaultContainer.Token})
 
 	secretA := "this is my secret"
 	secretB := "this is another secret"
 	secretC := "this is yet another secret"
 
-	encryptedBatch, err := vltx.Transit.EncryptBatch(ctx, transitKey, []byte(secretA), []byte(secretB), []byte(secretC))
+	encryptedBatch, err := vltx.Transit().EncryptBatch(ctx, transitKey, []byte(secretA), []byte(secretB), []byte(secretC))
 	require.NoError(t, err, "Encryption failure")
 	require.NotEmpty(t, encryptedBatch, "Encrypted batch is empty")
 	require.Equal(t, 3, len(encryptedBatch), "Incorrect number of encrypted items")
@@ -278,15 +278,15 @@ func TestIntegrationTransitDecryptDecryptsData(t *testing.T) {
 
 	cfg := vaultx.NewConfig(vaultContainer.URI)
 	vltx := vaultx.New(cfg)
-	vltx.Auth.SetToken(vaultxauth.Token{Value: vaultContainer.Token})
+	vltx.Auth().SetToken(vaultxauth.Token{Value: vaultContainer.Token})
 
 	plaintext := "this is my secret"
 
-	encrypted, err := vltx.Transit.Encrypt(ctx, transitKey, []byte(plaintext))
+	encrypted, err := vltx.Transit().Encrypt(ctx, transitKey, []byte(plaintext))
 	require.NoError(t, err, "Encryption failure")
 	require.NotEmpty(t, encrypted, "Encrypted value is empty")
 
-	decrypted, err := vltx.Transit.Decrypt(ctx, transitKey, encrypted)
+	decrypted, err := vltx.Transit().Decrypt(ctx, transitKey, encrypted)
 	require.NoError(t, err, "Decryption failure")
 	require.NotEmpty(t, encrypted, "Decrypted value is empty")
 	require.Equal(t, plaintext, string(decrypted), "Decrypted value is not equal to the original")
@@ -312,18 +312,18 @@ func TestIntegrationTransitDecryptBatchDecryptsData(t *testing.T) {
 
 	cfg := vaultx.NewConfig(vaultContainer.URI)
 	vltx := vaultx.New(cfg)
-	vltx.Auth.SetToken(vaultxauth.Token{Value: vaultContainer.Token})
+	vltx.Auth().SetToken(vaultxauth.Token{Value: vaultContainer.Token})
 
 	secretA := "this is my secret"
 	secretB := "this is another secret"
 	secretC := "this is yet another secret"
 
-	encryptedBatch, err := vltx.Transit.EncryptBatch(ctx, transitKey, []byte(secretA), []byte(secretB), []byte(secretC))
+	encryptedBatch, err := vltx.Transit().EncryptBatch(ctx, transitKey, []byte(secretA), []byte(secretB), []byte(secretC))
 	require.NoError(t, err, "Encryption failure")
 	require.NotEmpty(t, encryptedBatch, "Encrypted batch is empty")
 	require.Equal(t, 3, len(encryptedBatch), "Incorrect number of encrypted items")
 
-	decryptedBatch, err := vltx.Transit.DecryptBatch(ctx, transitKey, encryptedBatch...)
+	decryptedBatch, err := vltx.Transit().DecryptBatch(ctx, transitKey, encryptedBatch...)
 	require.NoError(t, err, "Decryption failure")
 	require.NotEmpty(t, encryptedBatch, "Decrypted batch is empty")
 	require.Equal(t, 3, len(encryptedBatch), "Incorrect number of decrypted items")
