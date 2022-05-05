@@ -3,10 +3,9 @@
 package mocks
 
 import (
-	api "github.com/jaredpetersen/vaultx/api"
-	auth "github.com/jaredpetersen/vaultx/auth"
-
 	context "context"
+
+	auth "github.com/jaredpetersen/vaultx/auth"
 
 	mock "github.com/stretchr/testify/mock"
 )
@@ -16,20 +15,20 @@ type Method struct {
 	mock.Mock
 }
 
-// Login provides a mock function with given fields: ctx, _a1
-func (_m *Method) Login(ctx context.Context, _a1 api.API) (auth.Token, error) {
-	ret := _m.Called(ctx, _a1)
+// Login provides a mock function with given fields: ctx, api
+func (_m *Method) Login(ctx context.Context, api auth.API) (auth.Token, error) {
+	ret := _m.Called(ctx, api)
 
 	var r0 auth.Token
-	if rf, ok := ret.Get(0).(func(context.Context, api.API) auth.Token); ok {
-		r0 = rf(ctx, _a1)
+	if rf, ok := ret.Get(0).(func(context.Context, auth.API) auth.Token); ok {
+		r0 = rf(ctx, api)
 	} else {
 		r0 = ret.Get(0).(auth.Token)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, api.API) error); ok {
-		r1 = rf(ctx, _a1)
+	if rf, ok := ret.Get(1).(func(context.Context, auth.API) error); ok {
+		r1 = rf(ctx, api)
 	} else {
 		r1 = ret.Error(1)
 	}
