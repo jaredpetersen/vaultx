@@ -1,5 +1,6 @@
 all: test build
 install:
+	go install golang.org/x/tools/cmd/goimports@latest
 	go install github.com/vektra/mockery/v2@latest
 	go install honnef.co/go/tools/cmd/staticcheck@latest
 build:
