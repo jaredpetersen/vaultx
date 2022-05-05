@@ -1,4 +1,6 @@
 # vaultx
+[![CI](https://github.com/jaredpetersen/vaultx/actions/workflows/ci.yaml/badge.svg)](https://github.com/jaredpetersen/vaultx/actions/workflows/ci.yaml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/jaredpetersen/vaultx.svg)](https://pkg.go.dev/github.com/jaredpetersen/vaultx)
 
 vaultx is an alternative to the official Vault Go package that is designed with the developer in mind.
 
