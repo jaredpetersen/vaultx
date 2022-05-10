@@ -14,7 +14,6 @@ import (
 
 	"github.com/jaredpetersen/vaultx/api"
 	"github.com/jaredpetersen/vaultx/auth"
-	authmocks "github.com/jaredpetersen/vaultx/auth/mocks"
 )
 
 func TestGetTokenReturnsEmptyToken(t *testing.T) {
@@ -51,8 +50,10 @@ func TestLoginUsesAuthMethodToSetToken(t *testing.T) {
 		Renewable:  true,
 	}
 
-	authMethod := authmocks.Method{}
-	authMethod.On("Login", ctx, &apic).Return(token, nil)
+	authMethod := fakeMethod{}
+	authMethod.loginFunc = func(ctx context.Context, api auth.API) (auth.Token, error) {
+		return token, nil
+	}
 
 	ac := auth.Client{
 		API:        &apic,
@@ -73,8 +74,10 @@ func TestLoginReturnsErrorOnAuthMethodError(t *testing.T) {
 
 	authMethodErr := errors.New("authentication failure")
 
-	authMethod := authmocks.Method{}
-	authMethod.On("Login", ctx, &apic).Return(auth.Token{Value: "dummy"}, authMethodErr)
+	authMethod := fakeMethod{}
+	authMethod.loginFunc = func(ctx context.Context, api auth.API) (auth.Token, error) {
+		return auth.Token{Value: "dummy"}, authMethodErr
+	}
 
 	ac := auth.Client{
 		API:        &apic,
@@ -281,8 +284,10 @@ func TestAutomaticUsesAuthMethodLoginToSetToken(t *testing.T) {
 		Renewable:  true,
 	}
 
-	authMethod := authmocks.Method{}
-	authMethod.On("Login", ctx, &apic).Return(token, nil)
+	authMethod := fakeMethod{}
+	authMethod.loginFunc = func(ctx context.Context, api auth.API) (auth.Token, error) {
+		return token, nil
+	}
 
 	ac := auth.Client{
 		API:        &apic,
@@ -304,8 +309,10 @@ func TestAutomaticHandlesAuthMethodLoginError(t *testing.T) {
 
 	loginErr := errors.New("uh-oh")
 
-	authMethod := authmocks.Method{}
-	authMethod.On("Login", ctx, &apic).Return(auth.Token{}, loginErr)
+	authMethod := fakeMethod{}
+	authMethod.loginFunc = func(ctx context.Context, api auth.API) (auth.Token, error) {
+		return auth.Token{}, loginErr
+	}
 
 	ac := auth.Client{
 		API:        &apic,
@@ -351,8 +358,10 @@ func TestAutomaticRenewsTokenAndSetsToken(t *testing.T) {
 		return nil, nil
 	}
 
-	authMethod := authmocks.Method{}
-	authMethod.On("Login", ctx, &apic).Return(token, nil)
+	authMethod := fakeMethod{}
+	authMethod.loginFunc = func(ctx context.Context, api auth.API) (auth.Token, error) {
+		return token, nil
+	}
 
 	ac := auth.Client{
 		API:        &apic,
@@ -390,8 +399,10 @@ func TestAutomaticHandlesRenewError(t *testing.T) {
 		return nil, renewErr
 	}
 
-	authMethod := authmocks.Method{}
-	authMethod.On("Login", ctx, &apic).Return(token, nil)
+	authMethod := fakeMethod{}
+	authMethod.loginFunc = func(ctx context.Context, api auth.API) (auth.Token, error) {
+		return token, nil
+	}
 
 	ac := auth.Client{
 		API:        &apic,
@@ -441,8 +452,10 @@ func TestAutomaticRenewsTokenOnTime(t *testing.T) {
 		return nil, nil
 	}
 
-	authMethod := authmocks.Method{}
-	authMethod.On("Login", ctx, &apic).Return(token, nil)
+	authMethod := fakeMethod{}
+	authMethod.loginFunc = func(ctx context.Context, api auth.API) (auth.Token, error) {
+		return token, nil
+	}
 
 	ac := auth.Client{
 		API:        &apic,
@@ -504,8 +517,10 @@ func TestAutomaticDoesNotRenewNonRenewableToken(t *testing.T) {
 		return nil, nil
 	}
 
-	authMethod := authmocks.Method{}
-	authMethod.On("Login", ctx, &apic).Return(token, nil)
+	authMethod := fakeMethod{}
+	authMethod.loginFunc = func(ctx context.Context, api auth.API) (auth.Token, error) {
+		return token, nil
+	}
 
 	ac := auth.Client{
 		API:        &apic,
@@ -556,8 +571,10 @@ func TestAutomaticStopsAfterContextDone(t *testing.T) {
 		return nil, nil
 	}
 
-	authMethod := authmocks.Method{}
-	authMethod.On("Login", ctx, &apic).Return(token, nil)
+	authMethod := fakeMethod{}
+	authMethod.loginFunc = func(ctx context.Context, api auth.API) (auth.Token, error) {
+		return token, nil
+	}
 
 	ac := auth.Client{
 		API:        &apic,
@@ -619,8 +636,10 @@ func TestAutomaticRenewsTokenDespiteNotReceivingEvents(t *testing.T) {
 		return nil, nil
 	}
 
-	authMethod := authmocks.Method{}
-	authMethod.On("Login", ctx, &apic).Return(token, nil)
+	authMethod := fakeMethod{}
+	authMethod.loginFunc = func(ctx context.Context, api auth.API) (auth.Token, error) {
+		return token, nil
+	}
 
 	ac := auth.Client{
 		API:        &apic,
