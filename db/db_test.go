@@ -7,8 +7,10 @@ import (
 	"io"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/go-cleanhttp"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/jaredpetersen/vaultx/api"
@@ -30,12 +32,27 @@ func TestGenerateCredentialsReturnsCredentials(t *testing.T) {
 	tokenManager := authmocks.TokenManager{}
 	tokenManager.On("GetToken").Return(token, nil)
 
+	generatedLeaseID := "somelease"
+	generatedLeaseExpiration := 400
+	generatedLeaseRenewable := true
 	generatedUsername := "someusername"
 	generatedPassword := "somepassword"
 
 	// Set up mocked API response
+	resBodyFmt := `{
+		"lease_id": "%s",
+		"lease_duration": %d,
+		"renewable": %t,
+		"data": {
+			"username": "%s",
+			"password": "%s"
+		}
+	}`
 	resBody := fmt.Sprintf(
-		"{\"data\": {\"username\": \"%s\", \"password\":\"%s\"}}",
+		resBodyFmt,
+		generatedLeaseID,
+		generatedLeaseExpiration,
+		generatedLeaseRenewable,
 		generatedUsername,
 		generatedPassword)
 	res := api.Response{
@@ -57,10 +74,11 @@ func TestGenerateCredentialsReturnsCredentials(t *testing.T) {
 	dbCredentials, err := dbc.GenerateCredentials(ctx, dbRole)
 	require.NoError(t, err, "Credential generation failure")
 	require.NotEmpty(t, dbCredentials, "Credentials are empty")
-	require.NotEmpty(t, dbCredentials.Username, "Username is empty")
-	require.Equal(t, generatedUsername, dbCredentials.Username, "Username matches original credentials")
-	require.NotEmpty(t, dbCredentials.Password, "Password is empty")
-	require.Equal(t, generatedPassword, dbCredentials.Password, "Password matches original credentials")
+	assert.Equal(t, generatedUsername, dbCredentials.Username, "Username is incorrect")
+	assert.Equal(t, generatedPassword, dbCredentials.Password, "Password is incorrect")
+	assert.Equal(t, generatedLeaseID, dbCredentials.Lease.ID, "Lease ID is incorrect")
+	assert.Equal(t, generatedLeaseRenewable, dbCredentials.Lease.Renewable, "Lease renewable is incorrect")
+	assert.Equal(t, time.Duration(generatedLeaseExpiration)*time.Second, dbCredentials.Lease.Expiration, "Lease expiration is incorrect")
 }
 
 func TestGenerateCredentialsReturnsErrorOnRequestFailure(t *testing.T) {
@@ -88,7 +106,6 @@ func TestGenerateCredentialsReturnsErrorOnRequestFailure(t *testing.T) {
 	}
 
 	dbCredentials, err := dbc.GenerateCredentials(ctx, dbRole)
-	require.Error(t, err, "Error does not exist")
 	require.ErrorIs(t, err, resErr, "Error is incorrect")
 	require.Empty(t, dbCredentials, "Credentials are not empty")
 }
@@ -104,7 +121,15 @@ func TestGenerateCredentialsReturnsErrorOnInvalidResponseCode(t *testing.T) {
 	tokenManager.On("GetToken").Return(token, nil)
 
 	// Set up mocked API response with valid body but incorrect status code
-	resBody := "{\"data\": {\"username\": \"someusername\", \"password\": \"somepassword\"}}"
+	resBody := `{
+		"lease_id": "someid",
+		"lease_duration": 300,
+		"renewable": true,
+		"data": {
+			"username": "someusername",
+			"password": "somepassword"
+		}
+	}`
 	res := api.Response{
 		StatusCode: 418,
 		RawBody:    io.NopCloser(strings.NewReader(resBody)),
@@ -212,11 +237,14 @@ func TestIntegrationGenerateCredentialsReturnsCredentials(t *testing.T) {
 	dbCredentials, err := dbc.GenerateCredentials(ctx, dbRole)
 	require.NoError(t, err, "Credential generation failure")
 	require.NotEmpty(t, dbCredentials, "Credentials are empty")
-	require.NotEmpty(t, dbCredentials.Username, "Username is empty")
-	require.NotEqual(t, dbUser, dbCredentials.Username, "Username matches original credentials")
-	require.True(t, strings.HasPrefix(dbCredentials.Username, "v-token-"+dbRole))
-	require.NotEmpty(t, dbCredentials.Password, "Password is empty")
-	require.NotEqual(t, dbPassword, dbCredentials.Password, "Password matches original credentials")
+	assert.NotEmpty(t, dbCredentials.Username, "Username is empty")
+	assert.NotEqual(t, dbUser, dbCredentials.Username, "Username matches original credentials")
+	assert.True(t, strings.HasPrefix(dbCredentials.Username, "v-token-"+dbRole))
+	assert.NotEmpty(t, dbCredentials.Password, "Password is empty")
+	assert.NotEqual(t, dbPassword, dbCredentials.Password, "Password matches original credentials")
+	assert.NotEmpty(t, dbCredentials.Lease.ID, "Lease ID is empty")
+	assert.True(t, dbCredentials.Lease.Renewable, "Lease is not renewable")
+	assert.NotEmpty(t, dbCredentials.Lease.Expiration, "Lease expiration is empty")
 }
 
 func TestIntegrationGenerateCredentialsReturnsErrorOnInvalidDBEngineConfig(t *testing.T) {
