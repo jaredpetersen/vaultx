@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/jaredpetersen/vaultx/api"
 	"github.com/jaredpetersen/vaultx/auth"
@@ -20,6 +21,14 @@ type Client struct {
 type Credentials struct {
 	Username string
 	Password string
+	Lease    Lease
+}
+
+// Lease contains information about how long the secret is valid.
+type Lease struct {
+	ID         string
+	Renewable  bool
+	Expiration time.Duration
 }
 
 const httpPathDBCredentials = "/v1/database/creds/"
@@ -32,7 +41,10 @@ func (db *Client) GenerateCredentials(ctx context.Context, role string) (*Creden
 	}
 
 	type credentialsResponseWrapper struct {
-		Data credentialsResponse `json:"data"`
+		LeaseID      string              `json:"lease_id"`
+		LaseDuration int                 `json:"lease_duration"`
+		Renewable    bool                `json:"renewable"`
+		Data         credentialsResponse `json:"data"`
 	}
 
 	res, err := db.API.Read(ctx, httpPathDBCredentials+role, db.TokenManager.GetToken().Value)
@@ -53,6 +65,11 @@ func (db *Client) GenerateCredentials(ctx context.Context, role string) (*Creden
 	credentials := Credentials{
 		Username: resBody.Data.Username,
 		Password: resBody.Data.Password,
+		Lease: Lease{
+			ID:         resBody.LeaseID,
+			Renewable:  resBody.Renewable,
+			Expiration: time.Duration(resBody.LaseDuration) * time.Second,
+		},
 	}
 
 	return &credentials, nil
