@@ -5,8 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.0.4] - 2022-05-13
-### Changed
-- Database credentials include lease information so that you know when the secret expires
+### Added
+- Lease information to Database credentials so that you know when the secret expires
 
 ## [0.0.3] - 2022-05-05
 ### Changed
