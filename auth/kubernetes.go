@@ -1,4 +1,4 @@
-package k8s
+package auth
 
 import (
 	"context"
@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"github.com/jaredpetersen/vaultx/api"
-	"github.com/jaredpetersen/vaultx/auth"
 )
 
 const httpPathAuthKubernetesLogin = "/v1/auth/kubernetes/login"
 const defaultKubernetesServiceAccountTokenPath = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 
-type Config struct {
+// KubernetesConfig describes the configuration necessary for KubernetesMethod.
+type KubernetesConfig struct {
 	// Role is the AuthMethod service account role that should be used to authenticate with Vault.
 	Role string
 
@@ -23,17 +23,17 @@ type Config struct {
 	JWTProvider func() (string, error)
 }
 
-// AuthMethod enables the Vault client to use information about your AuthMethod deployment environment to
-// authenticate itself with Vault.
+// KubernetesMethod enables the Vault client to use authenticate itself with Vault by using the identity established
+// by your Kubernetes cluster.
 //
 // See https://www.vaultproject.io/api-docs/auth/kubernetes for more information on the Kubernetes auth method.
-type AuthMethod struct {
-	Config Config
+type KubernetesMethod struct {
+	Config KubernetesConfig
 }
 
-// DefaultJWTProvider is an implementation of JWTProvider that reads the Kubernetes service account JWT token located
+// DefaultKubernetesJWTProvider reads the Kubernetes service account JWT token located
 // at /var/run/secrets/kubernetes.io/serviceaccount/token and returns it.
-func DefaultJWTProvider() (string, error) {
+func DefaultKubernetesJWTProvider() (string, error) {
 	jwtBytes, err := os.ReadFile(defaultKubernetesServiceAccountTokenPath)
 	if err != nil {
 		return "", err
@@ -43,20 +43,20 @@ func DefaultJWTProvider() (string, error) {
 	return jwt, nil
 }
 
-// New creates a new Vault auth method for Kubernetes.
-func New(config Config) AuthMethod {
+// NewKubernetesMethod creates a new Vault auth method for Kubernetes.
+func NewKubernetesMethod(config KubernetesConfig) KubernetesMethod {
 	if config.JWTProvider == nil {
-		config.JWTProvider = DefaultJWTProvider
+		config.JWTProvider = DefaultKubernetesJWTProvider
 	}
 
-	return AuthMethod{Config: config}
+	return KubernetesMethod{Config: config}
 }
 
-// Login generates a Vault token using information about the AuthMethod deployment environment.
-func (m AuthMethod) Login(ctx context.Context, api api.API) (auth.Token, error) {
-	jwt, err := m.Config.JWTProvider()
+// Login generates a Vault token using the identity established by your Kubernetes cluster.
+func (k KubernetesMethod) Login(ctx context.Context, api api.API) (Token, error) {
+	jwt, err := k.Config.JWTProvider()
 	if err != nil {
-		return auth.Token{}, err
+		return Token{}, err
 	}
 
 	type generateTokenRequest struct {
@@ -65,17 +65,17 @@ func (m AuthMethod) Login(ctx context.Context, api api.API) (auth.Token, error) 
 	}
 
 	authPayload := generateTokenRequest{
-		Role: m.Config.Role,
+		Role: k.Config.Role,
 		JWT:  jwt,
 	}
 
 	res, err := api.Write(ctx, httpPathAuthKubernetesLogin, "", authPayload)
 	if err != nil {
-		return auth.Token{}, err
+		return Token{}, err
 	}
 
 	if res.StatusCode != 200 {
-		return auth.Token{}, fmt.Errorf("received invalid status code %d for http request", res.StatusCode)
+		return Token{}, fmt.Errorf("received invalid status code %d for http request", res.StatusCode)
 	}
 
 	type kubernetesAuthResponse struct {
@@ -91,10 +91,10 @@ func (m AuthMethod) Login(ctx context.Context, api api.API) (auth.Token, error) 
 	resBody := new(kubernetesAuthResponseWrapper)
 	err = res.JSON(resBody)
 	if err != nil {
-		return auth.Token{}, err
+		return Token{}, err
 	}
 
-	token := auth.Token{
+	token := Token{
 		Value:      resBody.Auth.ClientToken,
 		Expiration: time.Duration(resBody.Auth.LeaseDuration) * time.Second,
 		Renewable:  resBody.Auth.Renewable,

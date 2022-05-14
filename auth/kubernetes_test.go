@@ -1,4 +1,4 @@
-package k8s_test
+package auth_test
 
 import (
 	"context"
@@ -10,31 +10,30 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jaredpetersen/vaultx/auth"
 	"github.com/stretchr/testify/require"
 
 	"github.com/jaredpetersen/vaultx/api"
-	"github.com/jaredpetersen/vaultx/auth"
-	"github.com/jaredpetersen/vaultx/auth/k8s"
 )
 
-func TestNewProvidesDefaultJWTProvider(t *testing.T) {
-	kc := k8s.Config{Role: "my-role"}
-	k := k8s.New(kc)
+func TestNewKubernetesAuthMethodProvidesDefaultJWTProvider(t *testing.T) {
+	kc := auth.KubernetesConfig{Role: "my-role"}
+	k := auth.NewKubernetesMethod(kc)
 
 	require.NotEmpty(t, k.Config.JWTProvider, "JWT provider is empty")
 
-	// Can't assert that k.Config.JWTProvider is set to auth.DefaultJWTProvider
+	// Can't assert that k.KubernetesConfig.JWTProvider is set to auth.DefaultKubernetesJWTProvider
 }
 
 func TestAuthMethodLoginGeneratesToken(t *testing.T) {
 	jwt := "jwt"
-	kc := k8s.Config{
+	kc := auth.KubernetesConfig{
 		Role: "my-role",
 		JWTProvider: func() (string, error) {
 			return jwt, nil
 		},
 	}
-	k := k8s.New(kc)
+	k := auth.NewKubernetesMethod(kc)
 
 	ctx := context.Background()
 
@@ -63,15 +62,15 @@ func TestAuthMethodLoginGeneratesToken(t *testing.T) {
 	require.Equal(t, token, genToken, "Token is incorrect")
 }
 
-func TestAuthMethodLoginCorrectlyCommunicatesWithAPI(t *testing.T) {
+func TestKubernetesAuthMethodLoginCorrectlyCommunicatesWithAPI(t *testing.T) {
 	jwt := "jwt"
-	kc := k8s.Config{
+	kc := auth.KubernetesConfig{
 		Role: "my-role",
 		JWTProvider: func() (string, error) {
 			return jwt, nil
 		},
 	}
-	k := k8s.New(kc)
+	k := auth.NewKubernetesMethod(kc)
 
 	ctx := context.Background()
 
@@ -111,13 +110,13 @@ func TestAuthMethodLoginCorrectlyCommunicatesWithAPI(t *testing.T) {
 
 func TestAuthMethodReturnsErrorOnJWTProviderError(t *testing.T) {
 	jwtErr := errors.New("uh-oh")
-	kc := k8s.Config{
+	kc := auth.KubernetesConfig{
 		Role: "my-role",
 		JWTProvider: func() (string, error) {
 			return "", jwtErr
 		},
 	}
-	k := k8s.New(kc)
+	k := auth.NewKubernetesMethod(kc)
 
 	ctx := context.Background()
 
@@ -130,13 +129,13 @@ func TestAuthMethodReturnsErrorOnJWTProviderError(t *testing.T) {
 
 func TestAuthMethodLoginReturnsErrorOnRequestFailure(t *testing.T) {
 	jwt := "jwt"
-	kc := k8s.Config{
+	kc := auth.KubernetesConfig{
 		Role: "my-role",
 		JWTProvider: func() (string, error) {
 			return jwt, nil
 		},
 	}
-	k := k8s.New(kc)
+	k := auth.NewKubernetesMethod(kc)
 
 	ctx := context.Background()
 
@@ -157,13 +156,13 @@ func TestAuthMethodLoginReturnsErrorOnRequestFailure(t *testing.T) {
 
 func TestAuthMethodLoginReturnsErrorOnInvalidResponseCode(t *testing.T) {
 	jwt := "jwt"
-	kc := k8s.Config{
+	kc := auth.KubernetesConfig{
 		Role: "my-role",
 		JWTProvider: func() (string, error) {
 			return jwt, nil
 		},
 	}
-	k := k8s.New(kc)
+	k := auth.NewKubernetesMethod(kc)
 
 	ctx := context.Background()
 
@@ -195,13 +194,13 @@ func TestAuthMethodLoginReturnsErrorOnInvalidResponseCode(t *testing.T) {
 
 func TestAuthMethodLoginReturnsErrorOnInvalidJSONResponse(t *testing.T) {
 	jwt := "jwt"
-	kc := k8s.Config{
+	kc := auth.KubernetesConfig{
 		Role: "my-role",
 		JWTProvider: func() (string, error) {
 			return jwt, nil
 		},
 	}
-	k := k8s.New(kc)
+	k := auth.NewKubernetesMethod(kc)
 
 	ctx := context.Background()
 
