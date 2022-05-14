@@ -47,6 +47,45 @@ func TestAuthMethodLoginGeneratesToken(t *testing.T) {
 	apic := FakeAPI{}
 	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
 		if path == apiPathKubernetesLogin {
+			resBody := fmt.Sprintf(
+				"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
+				token.Value,
+				token.Expiration.Seconds(),
+				token.Renewable)
+			res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
+			return &res, nil
+		}
+		return nil, errors.New("write not implemented")
+	}
+
+	genToken, err := k.Login(ctx, apic)
+	assert.NoError(t, err, "Login failure")
+	assert.Equal(t, token, genToken, "Token is incorrect")
+}
+
+func TestAuthMethodLoginCorrectlyCommunicatesWithAPI(t *testing.T) {
+	jwt := "jwt"
+	kc := k8s.Config{
+		Role: "my-role",
+		JWTProvider: func() (string, error) {
+			return jwt, nil
+		},
+	}
+	k := k8s.New(kc)
+
+	ctx := context.Background()
+
+	token := auth.Token{
+		Value:      "sometoken",
+		Expiration: 72 * time.Hour,
+		Renewable:  false,
+	}
+
+	apic := FakeAPI{}
+	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+		if path == apiPathKubernetesLogin {
+			// Make behavior assertions in our "fake" because we can't do a real integration test
+
 			assert.Empty(t, vaultToken, "Vault token is not empty")
 			assert.NotEmpty(t, payload, "Payload is empty")
 

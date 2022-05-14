@@ -2,7 +2,6 @@ package kv_test
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -40,8 +39,6 @@ func TestGetSecretReturnsSecret(t *testing.T) {
 	apic := FakeAPI{}
 	apic.ReadFunc = func(ctx context.Context, path string, vaultToken string) (*api.Response, error) {
 		if path == apiPathSecret+secretPath {
-			assert.Equal(t, token.Value, vaultToken, "Vault token is incorrect")
-
 			resBody := fmt.Sprintf(
 				"{\"data\": {\"data\": {\"username\": \"%s\", \"password\": \"%s\"}, \"metadata\": {\"version\": %d}}}",
 				secretData["username"],
@@ -199,15 +196,6 @@ func TestUpsertSecretDoesNotReturnError(t *testing.T) {
 	apic := FakeAPI{}
 	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
 		if path == apiPathSecret+secretPath {
-			assert.Equal(t, token.Value, vaultToken, "Vault token is incorrect")
-
-			expectedReqBody := fmt.Sprintf(
-				"{\"data\": {\"username\": \"%s\", \"password\": \"%s\"}}",
-				secretData["username"],
-				secretData["password"])
-			actualReqBody, _ := json.Marshal(payload)
-			assert.JSONEq(t, expectedReqBody, string(actualReqBody))
-
 			resBody := "{\"data\": {\"version\": 493}}"
 			res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
 			return &res, nil

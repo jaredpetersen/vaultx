@@ -42,8 +42,6 @@ func TestGenerateCredentialsReturnsCredentials(t *testing.T) {
 	apic := FakeAPI{}
 	apic.ReadFunc = func(ctx context.Context, path string, vaultToken string) (*api.Response, error) {
 		if path == apiPathDBCredentials+dbRole {
-			assert.Equal(t, vaultToken, token.Value, "Token is incorrect")
-
 			resBodyFmt := `{
 				"lease_id": "%s",
 				"lease_duration": %d,
@@ -132,14 +130,14 @@ func TestGenerateCredentialsReturnsErrorOnInvalidResponseCode(t *testing.T) {
 	apic.ReadFunc = func(ctx context.Context, path string, vaultToken string) (*api.Response, error) {
 		if path == apiPathDBCredentials+dbRole {
 			resBody := `{
-			"lease_id": "someid",
-			"lease_duration": 300,
-			"renewable": true,
-			"data": {
-				"username": "someusername",
-				"password": "somepassword"
-			}
-		}`
+				"lease_id": "someid",
+				"lease_duration": 300,
+				"renewable": true,
+				"data": {
+					"username": "someusername",
+					"password": "somepassword"
+				}
+			}`
 			res := api.Response{StatusCode: 418, RawBody: io.NopCloser(strings.NewReader(resBody))}
 			return &res, nil
 		}

@@ -109,6 +109,46 @@ func TestRenewSelfRenewsTokenAndSetsToken(t *testing.T) {
 	apic := FakeAPI{}
 	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
 		if path == apiPathRenew {
+			resBody := fmt.Sprintf(
+				"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
+				renewedToken.Value,
+				renewedToken.Expiration.Seconds(),
+				renewedToken.Renewable)
+			res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
+			return &res, nil
+		}
+		return nil, errors.New("write not implemented")
+	}
+
+	ac := auth.Client{API: &apic}
+
+	ac.SetToken(token)
+	err := ac.RenewSelf(ctx)
+	require.NoError(t, err, "Renew failure")
+
+	storedToken := ac.GetToken()
+	require.Equal(t, renewedToken, storedToken, "Token is incorrect")
+}
+
+func TestRenewSelfCorrectlyCommunicatesWithAPI(t *testing.T) {
+	ctx := context.Background()
+
+	token := auth.Token{
+		Value:      "sometoken",
+		Expiration: 30 * time.Minute,
+		Renewable:  true,
+	}
+	renewedToken := auth.Token{
+		Value:      "renewedtoken",
+		Expiration: 45 * time.Minute,
+		Renewable:  false,
+	}
+
+	apic := FakeAPI{}
+	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+		if path == apiPathRenew {
+			// Make behavior assertions in our "fake" because we can't do a real integration test
+
 			assert.Equal(t, token.Value, vaultToken, "Token is incorrect")
 			assert.Empty(t, payload, "Payload is not empty")
 

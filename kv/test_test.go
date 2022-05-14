@@ -2,15 +2,12 @@ package kv_test
 
 import (
 	"context"
-	"regexp"
 
 	"github.com/jaredpetersen/vaultx/api"
 	"github.com/jaredpetersen/vaultx/auth"
 )
 
 const apiPathSecret = "/v1/secret/data/"
-
-var apiPathKVRegex = regexp.MustCompile("/v1/secret/data/([A-Za-z]+)")
 
 // FakeAPI is a test fake for auth.API.
 type FakeAPI struct {
