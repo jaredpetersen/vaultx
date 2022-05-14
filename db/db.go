@@ -34,7 +34,7 @@ type Lease struct {
 const httpPathDBCredentials = "/v1/database/creds/"
 
 // GenerateCredentials generates a new set of dynamic credentials based on the role.
-func (db *Client) GenerateCredentials(ctx context.Context, role string) (*Credentials, error) {
+func (db *Client) GenerateCredentials(ctx context.Context, role string) (Credentials, error) {
 	type credentialsResponse struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
@@ -49,17 +49,17 @@ func (db *Client) GenerateCredentials(ctx context.Context, role string) (*Creden
 
 	res, err := db.API.Read(ctx, httpPathDBCredentials+role, db.TokenManager.GetToken().Value)
 	if err != nil {
-		return nil, fmt.Errorf("failed to perform database credentials generation request: %w", err)
+		return Credentials{}, fmt.Errorf("failed to perform database credentials generation request: %w", err)
 	}
 
 	if res.StatusCode != 200 {
-		return nil, fmt.Errorf("received invalid status code %d for http request", res.StatusCode)
+		return Credentials{}, fmt.Errorf("received invalid status code %d for http request", res.StatusCode)
 	}
 
 	resBody := new(credentialsResponseWrapper)
 	err = res.JSON(resBody)
 	if err != nil {
-		return nil, err
+		return Credentials{}, err
 	}
 
 	credentials := Credentials{
@@ -72,5 +72,5 @@ func (db *Client) GenerateCredentials(ctx context.Context, role string) (*Creden
 		},
 	}
 
-	return &credentials, nil
+	return credentials, nil
 }
