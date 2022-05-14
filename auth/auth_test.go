@@ -42,7 +42,7 @@ func TestSetGetTokenReturnsToken(t *testing.T) {
 func TestLoginUsesAuthMethodToSetToken(t *testing.T) {
 	ctx := context.Background()
 
-	apic := fakeAPI{}
+	apic := MockAPI{}
 
 	token := auth.Token{
 		Value:      "sometoken",
@@ -50,7 +50,7 @@ func TestLoginUsesAuthMethodToSetToken(t *testing.T) {
 		Renewable:  true,
 	}
 
-	authMethod := fakeMethod{}
+	authMethod := FakeMethod{}
 	authMethod.loginFunc = func(ctx context.Context, api api.API) (auth.Token, error) {
 		return token, nil
 	}
@@ -70,11 +70,11 @@ func TestLoginUsesAuthMethodToSetToken(t *testing.T) {
 func TestLoginReturnsErrorOnAuthMethodError(t *testing.T) {
 	ctx := context.Background()
 
-	apic := fakeAPI{}
+	apic := MockAPI{}
 
 	authMethodErr := errors.New("authentication failure")
 
-	authMethod := fakeMethod{}
+	authMethod := FakeMethod{}
 	authMethod.loginFunc = func(ctx context.Context, api api.API) (auth.Token, error) {
 		return auth.Token{Value: "dummy"}, authMethodErr
 	}
@@ -106,18 +106,17 @@ func TestRenewSelfRenewsTokenAndSetsToken(t *testing.T) {
 		Renewable:  false,
 	}
 
-	apic := fakeAPI{}
-	apic.writeFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
-		if path == "/v1/auth/token/renew-self" && vaultToken == token.Value && payload == nil {
-			resBody := fmt.Sprintf(
-				"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
-				renewedToken.Value,
-				renewedToken.Expiration.Seconds(),
-				renewedToken.Renewable)
-			res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
-			return &res, nil
-		}
-		return nil, nil
+	apic := MockAPI{}
+	apic.RenewSelfFunc = func(vaultToken string, payload interface{}) (*api.Response, error) {
+		assert.Equal(t, token.Value, vaultToken, "Incorrect token")
+
+		resBody := fmt.Sprintf(
+			"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
+			renewedToken.Value,
+			renewedToken.Expiration.Seconds(),
+			renewedToken.Renewable)
+		res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
+		return &res, nil
 	}
 
 	ac := auth.Client{
@@ -135,7 +134,7 @@ func TestRenewSelfRenewsTokenAndSetsToken(t *testing.T) {
 func TestRenewSelfReturnsErrorOnTokenNotSet(t *testing.T) {
 	ctx := context.Background()
 
-	apic := fakeAPI{}
+	apic := MockAPI{}
 
 	ac := auth.Client{
 		API: &apic,
@@ -158,7 +157,7 @@ func TestRenewSelfReturnsErrorOnTokenNotRenewable(t *testing.T) {
 		Renewable:  false,
 	}
 
-	apic := fakeAPI{}
+	apic := MockAPI{}
 
 	ac := auth.Client{
 		API: &apic,
@@ -184,8 +183,8 @@ func TestRenewSelfReturnsErrorOnRequestFailure(t *testing.T) {
 
 	resErr := errors.New("failed request")
 
-	apic := fakeAPI{}
-	apic.writeFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+	apic := MockAPI{}
+	apic.RenewSelfFunc = func(vaultToken string, payload interface{}) (*api.Response, error) {
 		return nil, resErr
 	}
 
@@ -216,18 +215,15 @@ func TestRenewSelfReturnsErrorOnInvalidResponseCode(t *testing.T) {
 		Renewable:  false,
 	}
 
-	apic := fakeAPI{}
-	apic.writeFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
-		if path == apiPathRenew && vaultToken == token.Value && payload == nil {
-			resBody := fmt.Sprintf(
-				"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
-				renewedToken.Value,
-				renewedToken.Expiration.Seconds(),
-				renewedToken.Renewable)
-			res := api.Response{StatusCode: 418, RawBody: io.NopCloser(strings.NewReader(resBody))}
-			return &res, nil
-		}
-		return nil, nil
+	apic := MockAPI{}
+	apic.RenewSelfFunc = func(vaultToken string, payload interface{}) (*api.Response, error) {
+		resBody := fmt.Sprintf(
+			"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
+			renewedToken.Value,
+			renewedToken.Expiration.Seconds(),
+			renewedToken.Renewable)
+		res := api.Response{StatusCode: 418, RawBody: io.NopCloser(strings.NewReader(resBody))}
+		return &res, nil
 	}
 
 	ac := auth.Client{
@@ -252,13 +248,10 @@ func TestRenewSelfReturnsErrorOnInvalidJSONResponse(t *testing.T) {
 		Renewable:  true,
 	}
 
-	apic := fakeAPI{}
-	apic.writeFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
-		if path == apiPathRenew && vaultToken == token.Value && payload == nil {
-			res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader("a}"))}
-			return &res, nil
-		}
-		return nil, nil
+	apic := MockAPI{}
+	apic.RenewSelfFunc = func(vaultToken string, payload interface{}) (*api.Response, error) {
+		res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader("a}"))}
+		return &res, nil
 	}
 
 	ac := auth.Client{
@@ -276,7 +269,7 @@ func TestRenewSelfReturnsErrorOnInvalidJSONResponse(t *testing.T) {
 func TestAutomaticUsesAuthMethodLoginToSetToken(t *testing.T) {
 	ctx := context.Background()
 
-	apic := fakeAPI{}
+	apic := MockAPI{}
 
 	token := auth.Token{
 		Value:      "sometoken",
@@ -284,7 +277,7 @@ func TestAutomaticUsesAuthMethodLoginToSetToken(t *testing.T) {
 		Renewable:  true,
 	}
 
-	authMethod := fakeMethod{}
+	authMethod := FakeMethod{}
 	authMethod.loginFunc = func(ctx context.Context, api api.API) (auth.Token, error) {
 		return token, nil
 	}
@@ -305,11 +298,11 @@ func TestAutomaticUsesAuthMethodLoginToSetToken(t *testing.T) {
 func TestAutomaticHandlesAuthMethodLoginError(t *testing.T) {
 	ctx := context.Background()
 
-	apic := fakeAPI{}
+	apic := MockAPI{}
 
 	loginErr := errors.New("uh-oh")
 
-	authMethod := fakeMethod{}
+	authMethod := FakeMethod{}
 	authMethod.loginFunc = func(ctx context.Context, api api.API) (auth.Token, error) {
 		return auth.Token{}, loginErr
 	}
@@ -344,21 +337,18 @@ func TestAutomaticRenewsTokenAndSetsToken(t *testing.T) {
 		Renewable:  false,
 	}
 
-	apic := fakeAPI{}
-	apic.writeFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
-		if path == apiPathRenew && vaultToken == token.Value && payload == nil {
-			resBody := fmt.Sprintf(
-				"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
-				renewedToken.Value,
-				renewedToken.Expiration.Seconds(),
-				renewedToken.Renewable)
-			res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
-			return &res, nil
-		}
-		return nil, nil
+	apic := MockAPI{}
+	apic.RenewSelfFunc = func(vaultToken string, payload interface{}) (*api.Response, error) {
+		resBody := fmt.Sprintf(
+			"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
+			renewedToken.Value,
+			renewedToken.Expiration.Seconds(),
+			renewedToken.Renewable)
+		res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
+		return &res, nil
 	}
 
-	authMethod := fakeMethod{}
+	authMethod := FakeMethod{}
 	authMethod.loginFunc = func(ctx context.Context, api api.API) (auth.Token, error) {
 		return token, nil
 	}
@@ -394,12 +384,12 @@ func TestAutomaticHandlesRenewError(t *testing.T) {
 
 	renewErr := errors.New("uh-oh")
 
-	apic := fakeAPI{}
-	apic.writeFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+	apic := MockAPI{}
+	apic.RenewSelfFunc = func(vaultToken string, payload interface{}) (*api.Response, error) {
 		return nil, renewErr
 	}
 
-	authMethod := fakeMethod{}
+	authMethod := FakeMethod{}
 	authMethod.loginFunc = func(ctx context.Context, api api.API) (auth.Token, error) {
 		return token, nil
 	}
@@ -438,21 +428,18 @@ func TestAutomaticRenewsTokenOnTime(t *testing.T) {
 		Renewable:  true,
 	}
 
-	apic := fakeAPI{}
-	apic.writeFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
-		if path == apiPathRenew && vaultToken == token.Value && payload == nil {
-			resBody := fmt.Sprintf(
-				"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
-				token.Value,
-				token.Expiration.Seconds(),
-				token.Renewable)
-			res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
-			return &res, nil
-		}
-		return nil, nil
+	apic := MockAPI{}
+	apic.RenewSelfFunc = func(vaultToken string, payload interface{}) (*api.Response, error) {
+		resBody := fmt.Sprintf(
+			"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
+			token.Value,
+			token.Expiration.Seconds(),
+			token.Renewable)
+		res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
+		return &res, nil
 	}
 
-	authMethod := fakeMethod{}
+	authMethod := FakeMethod{}
 	authMethod.loginFunc = func(ctx context.Context, api api.API) (auth.Token, error) {
 		return token, nil
 	}
@@ -503,21 +490,18 @@ func TestAutomaticDoesNotRenewNonRenewableToken(t *testing.T) {
 		Renewable:  false,
 	}
 
-	apic := fakeAPI{}
-	apic.writeFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
-		if path == apiPathRenew && vaultToken == token.Value && payload == nil {
-			resBody := fmt.Sprintf(
-				"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
-				renewedToken.Value,
-				renewedToken.Expiration.Seconds(),
-				renewedToken.Renewable)
-			res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
-			return &res, nil
-		}
-		return nil, nil
+	apic := MockAPI{}
+	apic.RenewSelfFunc = func(vaultToken string, payload interface{}) (*api.Response, error) {
+		resBody := fmt.Sprintf(
+			"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
+			renewedToken.Value,
+			renewedToken.Expiration.Seconds(),
+			renewedToken.Renewable)
+		res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
+		return &res, nil
 	}
 
-	authMethod := fakeMethod{}
+	authMethod := FakeMethod{}
 	authMethod.loginFunc = func(ctx context.Context, api api.API) (auth.Token, error) {
 		return token, nil
 	}
@@ -557,21 +541,18 @@ func TestAutomaticStopsAfterContextDone(t *testing.T) {
 		Renewable:  true,
 	}
 
-	apic := fakeAPI{}
-	apic.writeFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
-		if path == apiPathRenew && vaultToken == token.Value && payload == nil {
-			resBody := fmt.Sprintf(
-				"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
-				token.Value,
-				token.Expiration.Seconds(),
-				token.Renewable)
-			res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
-			return &res, nil
-		}
-		return nil, nil
+	apic := MockAPI{}
+	apic.RenewSelfFunc = func(vaultToken string, payload interface{}) (*api.Response, error) {
+		resBody := fmt.Sprintf(
+			"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
+			token.Value,
+			token.Expiration.Seconds(),
+			token.Renewable)
+		res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
+		return &res, nil
 	}
 
-	authMethod := fakeMethod{}
+	authMethod := FakeMethod{}
 	authMethod.loginFunc = func(ctx context.Context, api api.API) (auth.Token, error) {
 		return token, nil
 	}
@@ -622,21 +603,18 @@ func TestAutomaticRenewsTokenDespiteNotReceivingEvents(t *testing.T) {
 		Renewable:  false,
 	}
 
-	apic := fakeAPI{}
-	apic.writeFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
-		if path == apiPathRenew && vaultToken == token.Value && payload == nil {
-			resBody := fmt.Sprintf(
-				"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
-				renewedToken.Value,
-				renewedToken.Expiration.Seconds(),
-				renewedToken.Renewable)
-			res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
-			return &res, nil
-		}
-		return nil, nil
+	apic := MockAPI{}
+	apic.RenewSelfFunc = func(vaultToken string, payload interface{}) (*api.Response, error) {
+		resBody := fmt.Sprintf(
+			"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
+			renewedToken.Value,
+			renewedToken.Expiration.Seconds(),
+			renewedToken.Renewable)
+		res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
+		return &res, nil
 	}
 
-	authMethod := fakeMethod{}
+	authMethod := FakeMethod{}
 	authMethod.loginFunc = func(ctx context.Context, api api.API) (auth.Token, error) {
 		return token, nil
 	}
