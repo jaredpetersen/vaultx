@@ -87,8 +87,7 @@ func (c *Client) Login(ctx context.Context) error {
 	return nil
 }
 
-// RenewSelf initiates a token renewal request for the internal Vault auth token that the client uses to
-// communicate with Vault.
+// RenewSelf renews the internal Vault auth token that the client uses to communicate with Vault.
 //
 // See https://www.vaultproject.io/api/auth/token#renew-a-token-self for more information.
 func (c *Client) RenewSelf(ctx context.Context) error {
