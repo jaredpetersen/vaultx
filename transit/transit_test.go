@@ -2,7 +2,6 @@ package transit_test
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -10,14 +9,10 @@ import (
 	"testing"
 
 	"github.com/hashicorp/go-cleanhttp"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/jaredpetersen/vaultx/api"
-	apimocks "github.com/jaredpetersen/vaultx/api/mocks"
 	"github.com/jaredpetersen/vaultx/auth"
-	authmocks "github.com/jaredpetersen/vaultx/auth/mocks"
 	"github.com/jaredpetersen/vaultx/transit"
 
 	"github.com/jaredpetersen/vaultx/internal/testcontainervault"
@@ -27,27 +22,24 @@ func TestEncryptEncryptsData(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up token manager
-	token := auth.Token{
-		Value: "vault token",
-	}
-	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(token, nil)
-
-	// Set up mocked API response
-	resBody := "{\"data\": {\"ciphertext\": \"vault:v1:asdfasdfasdf\"}}"
-	res := api.Response{
-		StatusCode: 200,
-		RawBody:    io.NopCloser(strings.NewReader(resBody)),
+	token := auth.Token{Value: "vault token"}
+	tokenManager := FakeTokenManager{}
+	tokenManager.GetTokenFunc = func() auth.Token {
+		return token
 	}
 
 	transitKey := "my-key"
 
 	// Set up mock API
-	apic := apimocks.API{}
-	apic.On("Write", ctx, "/v1/transit/encrypt/"+transitKey, token.Value, mock.MatchedBy(func(input interface{}) bool {
-		actualReqBody, _ := json.Marshal(input)
-		return assert.JSONEq(t, "{\"plaintext\": \"dGhpcyBpcyBteSBzZWNyZXQ=\"}", string(actualReqBody))
-	})).Return(&res, nil)
+	apic := FakeAPI{}
+	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+		if path == "/v1/transit/encrypt/"+transitKey {
+			resBody := "{\"data\": {\"ciphertext\": \"vault:v1:asdfasdfasdf\"}}"
+			res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
+			return &res, nil
+		}
+		return nil, errors.New("write not implemented")
+	}
 
 	transitc := transit.Client{
 		API:          &apic,
@@ -64,11 +56,11 @@ func TestEncryptReturnsErrorOnRequestFailure(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up token manager
-	token := auth.Token{
-		Value: "vault token",
+	token := auth.Token{Value: "vault token"}
+	tokenManager := FakeTokenManager{}
+	tokenManager.GetTokenFunc = func() auth.Token {
+		return token
 	}
-	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(token, nil)
 
 	// Set up mocked API request error
 	resErr := errors.New("failed request")
@@ -76,15 +68,19 @@ func TestEncryptReturnsErrorOnRequestFailure(t *testing.T) {
 	transitKey := "my-key"
 
 	// Set up mock API
-	apic := apimocks.API{}
-	apic.On("Write", ctx, "/v1/transit/encrypt/"+transitKey, token.Value, mock.Anything).Return(nil, resErr)
+	apic := FakeAPI{}
+	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+		if path == "/v1/transit/encrypt/"+transitKey {
+			return nil, resErr
+		}
+		return nil, errors.New("write not implemented")
+	}
 
 	transitc := transit.Client{
 		API:          &apic,
 		TokenManager: &tokenManager,
 	}
 	encrypted, err := transitc.Encrypt(ctx, transitKey, []byte("this is my secret"))
-	require.Error(t, err, "Error does not exist")
 	require.ErrorIs(t, err, resErr, "Error is incorrect")
 	require.Empty(t, encrypted, "Encrypted value is not empty")
 }
@@ -93,24 +89,24 @@ func TestEncryptReturnsErrorOnInvalidResponseCode(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up token manager
-	token := auth.Token{
-		Value: "vault token",
-	}
-	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(token, nil)
-
-	// Set up mocked API response with valid body but incorrect status code
-	resBody := "{\"data\": {\"ciphertext\": \"vault:v1:asdfasdfasdf\"}}"
-	res := api.Response{
-		StatusCode: 418,
-		RawBody:    io.NopCloser(strings.NewReader(resBody)),
+	token := auth.Token{Value: "vault token"}
+	tokenManager := FakeTokenManager{}
+	tokenManager.GetTokenFunc = func() auth.Token {
+		return token
 	}
 
 	transitKey := "my-key"
 
 	// Set up mock API
-	apic := apimocks.API{}
-	apic.On("Write", ctx, "/v1/transit/encrypt/"+transitKey, token.Value, mock.Anything).Return(&res, nil)
+	apic := FakeAPI{}
+	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+		if path == "/v1/transit/encrypt/"+transitKey {
+			resBody := "{\"data\": {\"ciphertext\": \"vault:v1:asdfasdfasdf\"}}"
+			res := api.Response{StatusCode: 418, RawBody: io.NopCloser(strings.NewReader(resBody))}
+			return &res, nil
+		}
+		return nil, errors.New("write not implemented")
+	}
 
 	transitc := transit.Client{
 		API:          &apic,
@@ -118,7 +114,7 @@ func TestEncryptReturnsErrorOnInvalidResponseCode(t *testing.T) {
 	}
 	encrypted, err := transitc.Encrypt(ctx, transitKey, []byte("this is my secret"))
 	require.Error(t, err, "Error does not exist")
-	require.Errorf(t, err, "received invalid status code 418 for http request")
+	require.Equal(t, err.Error(), "received invalid status code 418 for http request", "Error is incorrect")
 	require.Empty(t, encrypted, "Encrypted value is not empty")
 }
 
@@ -129,21 +125,23 @@ func TestEncryptReturnsErrorOnInvalidJSONResponse(t *testing.T) {
 	token := auth.Token{
 		Value: "vault token",
 	}
-	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(token, nil)
-
-	// Set up mocked API response with invalid JSON
-	resBody := "a}"
-	res := api.Response{
-		StatusCode: 200,
-		RawBody:    io.NopCloser(strings.NewReader(resBody)),
+	tokenManager := FakeTokenManager{}
+	tokenManager.GetTokenFunc = func() auth.Token {
+		return token
 	}
 
 	transitKey := "my-key"
 
 	// Set up mock API
-	apic := apimocks.API{}
-	apic.On("Write", ctx, "/v1/transit/encrypt/"+transitKey, token.Value, mock.Anything).Return(&res, nil)
+	apic := FakeAPI{}
+	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+		if path == "/v1/transit/encrypt/"+transitKey {
+			resBody := "a}"
+			res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
+			return &res, nil
+		}
+		return nil, errors.New("write not implemented")
+	}
 
 	transitc := transit.Client{
 		API:          &apic,
@@ -177,9 +175,7 @@ func TestIntegrationEncryptEncryptsData(t *testing.T) {
 		URL:  vaultContainer.URI,
 	}
 
-	authc := auth.Client{
-		API: &apic,
-	}
+	authc := auth.Client{API: &apic}
 	authc.SetToken(auth.Token{Value: vaultContainer.Token})
 
 	transitc := transit.Client{
@@ -198,11 +194,11 @@ func TestEncryptBatchEncryptsData(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up token manager
-	token := auth.Token{
-		Value: "vault token",
+	token := auth.Token{Value: "vault token"}
+	tokenManager := FakeTokenManager{}
+	tokenManager.GetTokenFunc = func() auth.Token {
+		return token
 	}
-	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(token, nil)
 
 	// Set up mocked API response
 	secretA := "this is my secret"
@@ -212,35 +208,29 @@ func TestEncryptBatchEncryptsData(t *testing.T) {
 	secretC := "this is yet another secret"
 	secretCEncrypted := "vault:v1:zxcvbnzxcvbn"
 
-	resBody := fmt.Sprintf(`{
-		"data": {
-			"batch_results": [
-				{"ciphertext": "%s"},
-				{"ciphertext": "%s"},
-				{"ciphertext": "%s"}
-			]
-		}
-	}`, secretAEncrypted, secretBEncrypted, secretCEncrypted)
-	res := api.Response{
-		StatusCode: 200,
-		RawBody:    io.NopCloser(strings.NewReader(resBody)),
-	}
-
 	transitKey := "my-key"
 
 	// Set up mock API
-	apic := apimocks.API{}
-	apic.On("Write", ctx, "/v1/transit/encrypt/"+transitKey, token.Value, mock.MatchedBy(func(input interface{}) bool {
-		actualReqBody, _ := json.Marshal(input)
-		expectedReqBody := `{
-			"batch_input": [
-				{"plaintext": "dGhpcyBpcyBteSBzZWNyZXQ="},
-				{"plaintext": "dGhpcyBpcyBhbm90aGVyIHNlY3JldA=="},
-				{"plaintext": "dGhpcyBpcyB5ZXQgYW5vdGhlciBzZWNyZXQ="}
-			]
-		}`
-		return assert.JSONEq(t, expectedReqBody, string(actualReqBody))
-	})).Return(&res, nil)
+	apic := FakeAPI{}
+	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+		if path == "/v1/transit/encrypt/"+transitKey {
+			resBody := fmt.Sprintf(`{
+				"data": {
+					"batch_results": [
+						{"ciphertext": "%s"},
+						{"ciphertext": "%s"},
+						{"ciphertext": "%s"}
+					]
+				}
+			}`, secretAEncrypted, secretBEncrypted, secretCEncrypted)
+			res := api.Response{
+				StatusCode: 200,
+				RawBody:    io.NopCloser(strings.NewReader(resBody)),
+			}
+			return &res, nil
+		}
+		return nil, errors.New("write not implemented")
+	}
 
 	transitc := transit.Client{
 		API:          &apic,
@@ -250,7 +240,7 @@ func TestEncryptBatchEncryptsData(t *testing.T) {
 	encryptedBatch, err := transitc.EncryptBatch(ctx, transitKey, []byte(secretA), []byte(secretB), []byte(secretC))
 	require.NoError(t, err, "Encryption failure")
 	require.NotEmpty(t, encryptedBatch, "Encrypted batch is empty")
-	require.Equal(t, 3, len(encryptedBatch), "Incorrect number of encrypted items")
+	require.Len(t, encryptedBatch, 3, "Incorrect number of encrypted items")
 	require.Equal(t, secretAEncrypted, encryptedBatch[0])
 	require.Equal(t, secretBEncrypted, encryptedBatch[1])
 	require.Equal(t, secretCEncrypted, encryptedBatch[2])
@@ -260,11 +250,11 @@ func TestEncryptBatchReturnsErrorOnRequestFailure(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up token manager
-	token := auth.Token{
-		Value: "vault token",
+	token := auth.Token{Value: "vault token"}
+	tokenManager := FakeTokenManager{}
+	tokenManager.GetTokenFunc = func() auth.Token {
+		return token
 	}
-	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(token, nil)
 
 	// Set up mocked API request error
 	resErr := errors.New("failed request")
@@ -272,8 +262,13 @@ func TestEncryptBatchReturnsErrorOnRequestFailure(t *testing.T) {
 	transitKey := "my-key"
 
 	// Set up mock API
-	apic := apimocks.API{}
-	apic.On("Write", ctx, "/v1/transit/encrypt/"+transitKey, token.Value, mock.Anything).Return(nil, resErr)
+	apic := FakeAPI{}
+	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+		if path == "/v1/transit/encrypt/"+transitKey {
+			return nil, resErr
+		}
+		return nil, errors.New("write not implemented")
+	}
 
 	transitc := transit.Client{
 		API:          &apic,
@@ -294,32 +289,32 @@ func TestEncryptBatchReturnsErrorOnInvalidResponseCode(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up token manager
-	token := auth.Token{
-		Value: "vault token",
-	}
-	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(token, nil)
-
-	// Set up mocked API response with valid body but incorrect status code
-	resBody := `{
-		"data": {
-			"batch_results": [
-				{"ciphertext": "vault:v1:asdfasdfasdf"},
-				{"ciphertext": "vault:v1:qwertyqwerty"},
-				{"ciphertext": "vault:v1:zxcvbnzxcvbn"}
-			]
-		}
-	}`
-	res := api.Response{
-		StatusCode: 418,
-		RawBody:    io.NopCloser(strings.NewReader(resBody)),
+	token := auth.Token{Value: "vault token"}
+	tokenManager := FakeTokenManager{}
+	tokenManager.GetTokenFunc = func() auth.Token {
+		return token
 	}
 
 	transitKey := "my-key"
 
 	// Set up mock API
-	apic := apimocks.API{}
-	apic.On("Write", ctx, "/v1/transit/encrypt/"+transitKey, token.Value, mock.Anything).Return(&res, nil)
+	apic := FakeAPI{}
+	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+		if path == "/v1/transit/encrypt/"+transitKey {
+			resBody := `{
+				"data": {
+					"batch_results": [
+						{"ciphertext": "vault:v1:asdfasdfasdf"},
+						{"ciphertext": "vault:v1:qwertyqwerty"},
+						{"ciphertext": "vault:v1:zxcvbnzxcvbn"}
+					]
+				}
+			}`
+			res := api.Response{StatusCode: 418, RawBody: io.NopCloser(strings.NewReader(resBody))}
+			return &res, nil
+		}
+		return nil, errors.New("write not implemented")
+	}
 
 	transitc := transit.Client{
 		API:          &apic,
@@ -332,7 +327,7 @@ func TestEncryptBatchReturnsErrorOnInvalidResponseCode(t *testing.T) {
 
 	encryptedBatch, err := transitc.EncryptBatch(ctx, transitKey, []byte(secretA), []byte(secretB), []byte(secretC))
 	require.Error(t, err, "Error does not exist")
-	require.Errorf(t, err, "received invalid status code 418 for http request")
+	require.Equal(t, err.Error(), "received invalid status code 418 for http request", "Error is incorrect")
 	require.Empty(t, encryptedBatch, "Encrypted batch is not empty")
 }
 
@@ -340,24 +335,24 @@ func TestEncryptBatchReturnsErrorOnInvalidJSONResponse(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up token manager
-	token := auth.Token{
-		Value: "vault token",
-	}
-	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(token, nil)
-
-	// Set up mocked API response with valid body but incorrect status code
-	resBody := "a}"
-	res := api.Response{
-		StatusCode: 200,
-		RawBody:    io.NopCloser(strings.NewReader(resBody)),
+	token := auth.Token{Value: "vault token"}
+	tokenManager := FakeTokenManager{}
+	tokenManager.GetTokenFunc = func() auth.Token {
+		return token
 	}
 
 	transitKey := "my-key"
 
 	// Set up mock API
-	apic := apimocks.API{}
-	apic.On("Write", ctx, "/v1/transit/encrypt/"+transitKey, token.Value, mock.Anything).Return(&res, nil)
+	apic := FakeAPI{}
+	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+		if path == "/v1/transit/encrypt/"+transitKey {
+			resBody := "a}"
+			res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
+			return &res, nil
+		}
+		return nil, errors.New("write not implemented")
+	}
 
 	transitc := transit.Client{
 		API:          &apic,
@@ -396,9 +391,7 @@ func TestIntegrationEncryptBatchEncryptsData(t *testing.T) {
 		URL:  vaultContainer.URI,
 	}
 
-	authc := auth.Client{
-		API: &apic,
-	}
+	authc := auth.Client{API: &apic}
 	authc.SetToken(auth.Token{Value: vaultContainer.Token})
 
 	transitc := transit.Client{
@@ -413,7 +406,7 @@ func TestIntegrationEncryptBatchEncryptsData(t *testing.T) {
 	encryptedBatch, err := transitc.EncryptBatch(ctx, transitKey, []byte(secretA), []byte(secretB), []byte(secretC))
 	require.NoError(t, err, "Encryption failure")
 	require.NotEmpty(t, encryptedBatch, "Encrypted batch is empty")
-	require.Equal(t, 3, len(encryptedBatch), "Incorrect number of encrypted items")
+	require.Len(t, encryptedBatch, 3, "Incorrect number of encrypted items")
 
 	for _, encrypted := range encryptedBatch {
 		require.True(t, strings.HasPrefix(encrypted, "vault:v1:"))
@@ -424,28 +417,28 @@ func TestDecryptDecryptsData(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up token manager
-	token := auth.Token{
-		Value: "vault token",
-	}
-	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(token, nil)
-
-	// Set up mocked API response
-	resBody := "{\"data\": {\"plaintext\": \"dGhpcyBpcyBteSBzZWNyZXQ=\"}}"
-	res := api.Response{
-		StatusCode: 200,
-		RawBody:    io.NopCloser(strings.NewReader(resBody)),
+	token := auth.Token{Value: "vault token"}
+	tokenManager := FakeTokenManager{}
+	tokenManager.GetTokenFunc = func() auth.Token {
+		return token
 	}
 
 	transitKey := "my-key"
 	encrypted := "vault:v1:asdfasdfasdf"
 
 	// Set up mock API
-	apic := apimocks.API{}
-	apic.On("Write", ctx, "/v1/transit/decrypt/"+transitKey, token.Value, mock.MatchedBy(func(input interface{}) bool {
-		actualReqBody, _ := json.Marshal(input)
-		return assert.JSONEq(t, fmt.Sprintf("{\"ciphertext\": \"%s\"}", encrypted), string(actualReqBody))
-	})).Return(&res, nil)
+	apic := FakeAPI{}
+	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+		if path == "/v1/transit/decrypt/"+transitKey {
+			resBody := "{\"data\": {\"plaintext\": \"dGhpcyBpcyBteSBzZWNyZXQ=\"}}"
+			res := api.Response{
+				StatusCode: 200,
+				RawBody:    io.NopCloser(strings.NewReader(resBody)),
+			}
+			return &res, nil
+		}
+		return nil, errors.New("write not implemented")
+	}
 
 	transitc := transit.Client{
 		API:          &apic,
@@ -461,11 +454,11 @@ func TestDecryptReturnsErrorOnRequestFailure(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up token manager
-	token := auth.Token{
-		Value: "vault token",
+	token := auth.Token{Value: "vault token"}
+	tokenManager := FakeTokenManager{}
+	tokenManager.GetTokenFunc = func() auth.Token {
+		return token
 	}
-	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(token, nil)
 
 	// Set up mocked API request error
 	resErr := errors.New("failed request")
@@ -473,15 +466,19 @@ func TestDecryptReturnsErrorOnRequestFailure(t *testing.T) {
 	transitKey := "my-key"
 
 	// Set up mock API
-	apic := apimocks.API{}
-	apic.On("Write", ctx, "/v1/transit/decrypt/"+transitKey, token.Value, mock.Anything).Return(nil, resErr)
+	apic := FakeAPI{}
+	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+		if path == "/v1/transit/decrypt/"+transitKey {
+			return nil, resErr
+		}
+		return nil, errors.New("write not implemented")
+	}
 
 	transitc := transit.Client{
 		API:          &apic,
 		TokenManager: &tokenManager,
 	}
 	decrypted, err := transitc.Decrypt(ctx, transitKey, "vault:v1:asdfasdfasdf")
-	require.Error(t, err, "Error does not exist")
 	require.ErrorIs(t, err, resErr, "Error is incorrect")
 	require.Empty(t, decrypted, "Decrypted value is not empty")
 }
@@ -490,24 +487,24 @@ func TestDecryptReturnsErrorOnInvalidResponseCode(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up token manager
-	token := auth.Token{
-		Value: "vault token",
-	}
-	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(token, nil)
-
-	// Set up mocked API response with valid body but incorrect status code
-	resBody := "{\"data\": {\"plaintext\": \"dGhpcyBpcyBteSBzZWNyZXQ=\"}}"
-	res := api.Response{
-		StatusCode: 418,
-		RawBody:    io.NopCloser(strings.NewReader(resBody)),
+	token := auth.Token{Value: "vault token"}
+	tokenManager := FakeTokenManager{}
+	tokenManager.GetTokenFunc = func() auth.Token {
+		return token
 	}
 
 	transitKey := "my-key"
 
 	// Set up mock API
-	apic := apimocks.API{}
-	apic.On("Write", ctx, "/v1/transit/decrypt/"+transitKey, token.Value, mock.Anything).Return(&res, nil)
+	apic := FakeAPI{}
+	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+		if path == "/v1/transit/decrypt/"+transitKey && vaultToken == token.Value {
+			resBody := "{\"data\": {\"plaintext\": \"dGhpcyBpcyBteSBzZWNyZXQ=\"}}"
+			res := api.Response{StatusCode: 418, RawBody: io.NopCloser(strings.NewReader(resBody))}
+			return &res, nil
+		}
+		return nil, errors.New("write not implemented")
+	}
 
 	transitc := transit.Client{
 		API:          &apic,
@@ -515,7 +512,7 @@ func TestDecryptReturnsErrorOnInvalidResponseCode(t *testing.T) {
 	}
 	decrypted, err := transitc.Decrypt(ctx, transitKey, "vault:v1:asdfasdfasdf")
 	require.Error(t, err, "Error does not exist")
-	require.Errorf(t, err, "received invalid status code 418 for http request")
+	require.Equal(t, err.Error(), "received invalid status code 418 for http request", "Error is incorrect")
 	require.Empty(t, decrypted, "Encrypted value is not empty")
 }
 
@@ -523,24 +520,24 @@ func TestDecryptReturnsErrorOnInvalidJSONResponse(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up token manager
-	token := auth.Token{
-		Value: "vault token",
-	}
-	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(token, nil)
-
-	// Set up mocked API response with invalid JSON
-	resBody := "a}"
-	res := api.Response{
-		StatusCode: 200,
-		RawBody:    io.NopCloser(strings.NewReader(resBody)),
+	token := auth.Token{Value: "vault token"}
+	tokenManager := FakeTokenManager{}
+	tokenManager.GetTokenFunc = func() auth.Token {
+		return token
 	}
 
 	transitKey := "my-key"
 
 	// Set up mock API
-	apic := apimocks.API{}
-	apic.On("Write", ctx, "/v1/transit/decrypt/"+transitKey, token.Value, mock.Anything).Return(&res, nil)
+	apic := FakeAPI{}
+	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+		if path == "/v1/transit/decrypt/"+transitKey {
+			resBody := "a}"
+			res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
+			return &res, nil
+		}
+		return nil, errors.New("write not implemented")
+	}
 
 	transitc := transit.Client{
 		API:          &apic,
@@ -555,24 +552,24 @@ func TestDecryptReturnsErrorOnInvalidBase64Response(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up token manager
-	token := auth.Token{
-		Value: "vault token",
-	}
-	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(token, nil)
-
-	// Set up mocked API response with invalid JSON
-	resBody := "{\"data\": {\"plaintext\": \"invalidbase64\"}}"
-	res := api.Response{
-		StatusCode: 200,
-		RawBody:    io.NopCloser(strings.NewReader(resBody)),
+	token := auth.Token{Value: "vault token"}
+	tokenManager := FakeTokenManager{}
+	tokenManager.GetTokenFunc = func() auth.Token {
+		return token
 	}
 
 	transitKey := "my-key"
 
 	// Set up mock API
-	apic := apimocks.API{}
-	apic.On("Write", ctx, "/v1/transit/decrypt/"+transitKey, token.Value, mock.Anything).Return(&res, nil)
+	apic := FakeAPI{}
+	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+		if path == "/v1/transit/decrypt/"+transitKey {
+			resBody := "{\"data\": {\"plaintext\": \"invalidbase64\"}}"
+			res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
+			return &res, nil
+		}
+		return nil, errors.New("write not implemented")
+	}
 
 	transitc := transit.Client{
 		API:          &apic,
@@ -632,11 +629,11 @@ func TestDecryptBatchDecryptsData(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up token manager
-	token := auth.Token{
-		Value: "vault token",
+	token := auth.Token{Value: "vault token"}
+	tokenManager := FakeTokenManager{}
+	tokenManager.GetTokenFunc = func() auth.Token {
+		return token
 	}
-	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(token, nil)
 
 	secretA := "this is my secret"
 	secretAEncrypted := "vault:v1:asdfasdfasdf"
@@ -645,36 +642,26 @@ func TestDecryptBatchDecryptsData(t *testing.T) {
 	secretC := "this is yet another secret"
 	secretCEncrypted := "vault:v1:zxcvbnzxcvbn"
 
-	// Set up mocked API response
-	resBody := `{
-		"data": {
-			"batch_results": [
-				{"plaintext": "dGhpcyBpcyBteSBzZWNyZXQ="},
-				{"plaintext": "dGhpcyBpcyBhbm90aGVyIHNlY3JldA=="},
-				{"plaintext": "dGhpcyBpcyB5ZXQgYW5vdGhlciBzZWNyZXQ="}
-			]
-		}
-	}`
-	res := api.Response{
-		StatusCode: 200,
-		RawBody:    io.NopCloser(strings.NewReader(resBody)),
-	}
-
 	transitKey := "my-key"
 
 	// Set up mock API
-	apic := apimocks.API{}
-	apic.On("Write", ctx, "/v1/transit/decrypt/"+transitKey, token.Value, mock.MatchedBy(func(input interface{}) bool {
-		actualReqBody, _ := json.Marshal(input)
-		expectedReqBody := fmt.Sprintf(`{
-			"batch_input": [
-				{"ciphertext": "%s"},
-				{"ciphertext": "%s"},
-				{"ciphertext": "%s"}
-			]
-		}`, secretAEncrypted, secretBEncrypted, secretCEncrypted)
-		return assert.JSONEq(t, expectedReqBody, string(actualReqBody))
-	})).Return(&res, nil)
+	apic := FakeAPI{}
+	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+		if path == "/v1/transit/decrypt/"+transitKey {
+			resBody := `{
+				"data": {
+					"batch_results": [
+						{"plaintext": "dGhpcyBpcyBteSBzZWNyZXQ="},
+						{"plaintext": "dGhpcyBpcyBhbm90aGVyIHNlY3JldA=="},
+						{"plaintext": "dGhpcyBpcyB5ZXQgYW5vdGhlciBzZWNyZXQ="}
+					]
+				}
+			}`
+			res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
+			return &res, nil
+		}
+		return nil, errors.New("write not implemented")
+	}
 
 	transitc := transit.Client{
 		API:          &apic,
@@ -694,11 +681,11 @@ func TestDecryptBatchReturnsErrorOnRequestFailure(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up token manager
-	token := auth.Token{
-		Value: "vault token",
+	token := auth.Token{Value: "vault token"}
+	tokenManager := FakeTokenManager{}
+	tokenManager.GetTokenFunc = func() auth.Token {
+		return token
 	}
-	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(token, nil)
 
 	// Set up mocked API request error
 	resErr := errors.New("failed request")
@@ -706,8 +693,13 @@ func TestDecryptBatchReturnsErrorOnRequestFailure(t *testing.T) {
 	transitKey := "my-key"
 
 	// Set up mock API
-	apic := apimocks.API{}
-	apic.On("Write", ctx, "/v1/transit/decrypt/"+transitKey, token.Value, mock.Anything).Return(nil, resErr)
+	apic := FakeAPI{}
+	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+		if path == "/v1/transit/decrypt/"+transitKey {
+			return nil, resErr
+		}
+		return nil, errors.New("write not implemented")
+	}
 
 	transitc := transit.Client{
 		API:          &apic,
@@ -724,32 +716,32 @@ func TestDecryptBatchReturnsErrorOnInvalidResponseCode(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up token manager
-	token := auth.Token{
-		Value: "vault token",
-	}
-	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(token, nil)
-
-	// Set up mocked API response with valid body but incorrect status code
-	resBody := `{
-		"data": {
-			"batch_results": [
-				{"plaintext": "dGhpcyBpcyBteSBzZWNyZXQ="},
-				{"plaintext": "dGhpcyBpcyBhbm90aGVyIHNlY3JldA=="},
-				{"plaintext": "dGhpcyBpcyB5ZXQgYW5vdGhlciBzZWNyZXQ="}
-			]
-		}
-	}`
-	res := api.Response{
-		StatusCode: 418,
-		RawBody:    io.NopCloser(strings.NewReader(resBody)),
+	token := auth.Token{Value: "vault token"}
+	tokenManager := FakeTokenManager{}
+	tokenManager.GetTokenFunc = func() auth.Token {
+		return token
 	}
 
 	transitKey := "my-key"
 
 	// Set up mock API
-	apic := apimocks.API{}
-	apic.On("Write", ctx, "/v1/transit/decrypt/"+transitKey, token.Value, mock.Anything).Return(&res, nil)
+	apic := FakeAPI{}
+	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+		if path == "/v1/transit/decrypt/"+transitKey {
+			resBody := `{
+				"data": {
+					"batch_results": [
+						{"plaintext": "dGhpcyBpcyBteSBzZWNyZXQ="},
+						{"plaintext": "dGhpcyBpcyBhbm90aGVyIHNlY3JldA=="},
+						{"plaintext": "dGhpcyBpcyB5ZXQgYW5vdGhlciBzZWNyZXQ="}
+					]
+				}
+			}`
+			res := api.Response{StatusCode: 418, RawBody: io.NopCloser(strings.NewReader(resBody))}
+			return &res, nil
+		}
+		return nil, errors.New("write not implemented")
+	}
 
 	transitc := transit.Client{
 		API:          &apic,
@@ -758,7 +750,7 @@ func TestDecryptBatchReturnsErrorOnInvalidResponseCode(t *testing.T) {
 
 	decryptedBatch, err := transitc.DecryptBatch(ctx, transitKey, "vault:v1:asdfasdfasdf", "vault:v1:qwertyqwerty", "vault:v1:zxcvbnzxcvbn")
 	require.Error(t, err, "Error does not exist")
-	require.Errorf(t, err, "received invalid status code 418 for http request")
+	require.Equal(t, err.Error(), "received invalid status code 418 for http request", "Error is incorrect")
 	require.Empty(t, decryptedBatch, "Encrypted batch is not empty")
 }
 
@@ -766,24 +758,24 @@ func TestDecryptBatchReturnsErrorOnInvalidJSONResponse(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up token manager
-	token := auth.Token{
-		Value: "vault token",
-	}
-	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(token, nil)
-
-	// Set up mocked API response with invalid JSON
-	resBody := "a}"
-	res := api.Response{
-		StatusCode: 200,
-		RawBody:    io.NopCloser(strings.NewReader(resBody)),
+	token := auth.Token{Value: "vault token"}
+	tokenManager := FakeTokenManager{}
+	tokenManager.GetTokenFunc = func() auth.Token {
+		return token
 	}
 
 	transitKey := "my-key"
 
 	// Set up mock API
-	apic := apimocks.API{}
-	apic.On("Write", ctx, "/v1/transit/decrypt/"+transitKey, token.Value, mock.Anything).Return(&res, nil)
+	apic := FakeAPI{}
+	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+		if path == "/v1/transit/decrypt/"+transitKey {
+			resBody := "a}"
+			res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
+			return &res, nil
+		}
+		return nil, errors.New("write not implemented")
+	}
 
 	transitc := transit.Client{
 		API:          &apic,
@@ -799,32 +791,32 @@ func TestDecryptBatchReturnsErrorOnInvalidBase64Response(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up token manager
-	token := auth.Token{
-		Value: "vault token",
-	}
-	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(token, nil)
-
-	// Set up mocked API response with invalid base64
-	resBody := `{
-		"data": {
-			"batch_results": [
-				{"plaintext": "dGhpcyBpcyBteSBzZWNyZXQ="},
-				{"plaintext": "invalidbase64"},
-				{"plaintext": "dGhpcyBpcyB5ZXQgYW5vdGhlciBzZWNyZXQ="}
-			]
-		}
-	}`
-	res := api.Response{
-		StatusCode: 200,
-		RawBody:    io.NopCloser(strings.NewReader(resBody)),
+	token := auth.Token{Value: "vault token"}
+	tokenManager := FakeTokenManager{}
+	tokenManager.GetTokenFunc = func() auth.Token {
+		return token
 	}
 
 	transitKey := "my-key"
 
 	// Set up mock API
-	apic := apimocks.API{}
-	apic.On("Write", ctx, "/v1/transit/decrypt/"+transitKey, token.Value, mock.Anything).Return(&res, nil)
+	apic := FakeAPI{}
+	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+		if path == "/v1/transit/decrypt/"+transitKey {
+			resBody := `{
+				"data": {
+					"batch_results": [
+						{"plaintext": "dGhpcyBpcyBteSBzZWNyZXQ="},
+						{"plaintext": "invalidbase64"},
+						{"plaintext": "dGhpcyBpcyB5ZXQgYW5vdGhlciBzZWNyZXQ="}
+					]
+				}
+			}`
+			res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
+			return &res, nil
+		}
+		return nil, errors.New("write not implemented")
+	}
 
 	transitc := transit.Client{
 		API:          &apic,

@@ -10,12 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/jaredpetersen/vaultx/api"
-	apimocks "github.com/jaredpetersen/vaultx/api/mocks"
 	"github.com/jaredpetersen/vaultx/auth"
 	"github.com/jaredpetersen/vaultx/auth/k8s"
 )
@@ -47,23 +44,69 @@ func TestAuthMethodLoginGeneratesToken(t *testing.T) {
 		Renewable:  false,
 	}
 
-	resBody := fmt.Sprintf(
-		"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
-		token.Value,
-		token.Expiration.Seconds(),
-		token.Renewable)
-	res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
+	apic := FakeAPI{}
+	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+		if path == apiPathKubernetesLogin {
+			resBody := fmt.Sprintf(
+				"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
+				token.Value,
+				token.Expiration.Seconds(),
+				token.Renewable)
+			res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
+			return &res, nil
+		}
+		return nil, errors.New("write not implemented")
+	}
 
-	apic := apimocks.API{}
-	apic.On("Write", ctx, "/v1/auth/kubernetes/login", "", mock.MatchedBy(func(input interface{}) bool {
-		expectedReqBody := fmt.Sprintf("{\"role\": \"%s\", \"jwt\": \"%s\"}", kc.Role, jwt)
-		actualReqBody, _ := json.Marshal(input)
-		return assert.JSONEq(t, expectedReqBody, string(actualReqBody))
-	})).Return(&res, nil)
+	genToken, err := k.Login(ctx, apic)
+	require.NoError(t, err, "Login failure")
+	require.Equal(t, token, genToken, "Token is incorrect")
+}
 
-	genToken, err := k.Login(ctx, &apic)
-	assert.NoError(t, err, "Login failure")
-	assert.Equal(t, token, genToken, "Token is incorrect")
+func TestAuthMethodLoginCorrectlyCommunicatesWithAPI(t *testing.T) {
+	jwt := "jwt"
+	kc := k8s.Config{
+		Role: "my-role",
+		JWTProvider: func() (string, error) {
+			return jwt, nil
+		},
+	}
+	k := k8s.New(kc)
+
+	ctx := context.Background()
+
+	token := auth.Token{
+		Value:      "sometoken",
+		Expiration: 72 * time.Hour,
+		Renewable:  false,
+	}
+
+	apic := FakeAPI{}
+	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+		if path == apiPathKubernetesLogin {
+			// Make behavior assertions in our "fake" because we can't do a real integration test
+
+			require.Empty(t, vaultToken, "Vault token is not empty")
+			require.NotEmpty(t, payload, "Payload is empty")
+
+			expectedReqBody := fmt.Sprintf("{\"role\": \"%s\", \"jwt\": \"%s\"}", kc.Role, jwt)
+			actualReqBody, _ := json.Marshal(payload)
+			require.JSONEq(t, expectedReqBody, string(actualReqBody))
+
+			resBody := fmt.Sprintf(
+				"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
+				token.Value,
+				token.Expiration.Seconds(),
+				token.Renewable)
+			res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
+			return &res, nil
+		}
+		return nil, errors.New("write not implemented")
+	}
+
+	genToken, err := k.Login(ctx, apic)
+	require.NoError(t, err, "Login failure")
+	require.Equal(t, token, genToken, "Token is incorrect")
 }
 
 func TestAuthMethodReturnsErrorOnJWTProviderError(t *testing.T) {
@@ -78,11 +121,11 @@ func TestAuthMethodReturnsErrorOnJWTProviderError(t *testing.T) {
 
 	ctx := context.Background()
 
-	apic := apimocks.API{}
+	apic := FakeAPI{}
 
 	genToken, err := k.Login(ctx, &apic)
-	assert.Empty(t, genToken, "Token exists")
-	assert.ErrorIs(t, err, jwtErr, "Incorrect error")
+	require.Empty(t, genToken, "Token exists")
+	require.ErrorIs(t, err, jwtErr, "Error is incorrect")
 }
 
 func TestAuthMethodLoginReturnsErrorOnRequestFailure(t *testing.T) {
@@ -99,12 +142,17 @@ func TestAuthMethodLoginReturnsErrorOnRequestFailure(t *testing.T) {
 
 	resErr := errors.New("uh-oh")
 
-	apic := apimocks.API{}
-	apic.On("Write", ctx, "/v1/auth/kubernetes/login", "", mock.Anything).Return(nil, resErr)
+	apic := FakeAPI{}
+	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+		if path == apiPathKubernetesLogin {
+			return nil, resErr
+		}
+		return nil, errors.New("write not implemented")
+	}
 
 	genToken, err := k.Login(ctx, &apic)
-	assert.Empty(t, genToken, "Token exists")
-	assert.ErrorIs(t, err, resErr, "Incorrect error")
+	require.Empty(t, genToken, "Token exists")
+	require.ErrorIs(t, err, resErr, "Error is incorrect")
 }
 
 func TestAuthMethodLoginReturnsErrorOnInvalidResponseCode(t *testing.T) {
@@ -125,20 +173,24 @@ func TestAuthMethodLoginReturnsErrorOnInvalidResponseCode(t *testing.T) {
 		Renewable:  false,
 	}
 
-	resBody := fmt.Sprintf(
-		"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
-		token.Value,
-		token.Expiration.Seconds(),
-		token.Renewable)
-	res := api.Response{StatusCode: 418, RawBody: io.NopCloser(strings.NewReader(resBody))}
-
-	apic := apimocks.API{}
-	apic.On("Write", ctx, "/v1/auth/kubernetes/login", "", mock.Anything).Return(&res, nil)
+	apic := FakeAPI{}
+	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+		if path == apiPathKubernetesLogin {
+			resBody := fmt.Sprintf(
+				"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
+				token.Value,
+				token.Expiration.Seconds(),
+				token.Renewable)
+			res := api.Response{StatusCode: 418, RawBody: io.NopCloser(strings.NewReader(resBody))}
+			return &res, nil
+		}
+		return nil, errors.New("write not implemented")
+	}
 
 	genToken, err := k.Login(ctx, &apic)
-	assert.Empty(t, genToken, "Token exists")
-	assert.Error(t, err, "Error does not exist")
-	assert.Errorf(t, err, "received invalid status code 418 for http request")
+	require.Empty(t, genToken, "Token exists")
+	require.Error(t, err, "Error does not exist")
+	require.Equal(t, err.Error(), "received invalid status code 418 for http request", "Error is incorrect")
 }
 
 func TestAuthMethodLoginReturnsErrorOnInvalidJSONResponse(t *testing.T) {
@@ -153,13 +205,18 @@ func TestAuthMethodLoginReturnsErrorOnInvalidJSONResponse(t *testing.T) {
 
 	ctx := context.Background()
 
-	resBody := "a}"
-	res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
-
-	apic := apimocks.API{}
-	apic.On("Write", ctx, "/v1/auth/kubernetes/login", "", mock.Anything).Return(&res, nil)
+	apic := FakeAPI{}
+	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+		if path == apiPathKubernetesLogin {
+			resBody := "a}"
+			res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
+			return &res, nil
+		}
+		return nil, errors.New("write not implemented")
+	}
 
 	genToken, err := k.Login(ctx, &apic)
-	assert.Empty(t, genToken, "Token exists")
-	assert.Error(t, err, "Error does not exist")
+	require.Empty(t, genToken, "Token exists")
+	require.Error(t, err, "Error does not exist")
+	require.Equal(t, err.Error(), "invalid character 'a' looking for beginning of value", "Error is incorrect")
 }

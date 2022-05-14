@@ -5,9 +5,6 @@ install:
 	go install honnef.co/go/tools/cmd/staticcheck@latest
 build:
 	go build
-generate:
-	mockery --dir api --output api/mocks --all
-	mockery --dir auth --output auth/mocks --all
 format:
 	goimports -local "github.com/jaredpetersen/vaultx" -w .
 	gofmt -w -s .
