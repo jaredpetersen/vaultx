@@ -10,19 +10,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/jaredpetersen/vaultx/api"
 	"github.com/jaredpetersen/vaultx/auth"
 	"github.com/jaredpetersen/vaultx/auth/k8s"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewProvidesDefaultJWTProvider(t *testing.T) {
 	kc := k8s.Config{Role: "my-role"}
 	k := k8s.New(kc)
 
-	require.NotEmpty(t, k.Config.JWTProvider, "JWT provider is empty")
+	assert.NotEmpty(t, k.Config.JWTProvider, "JWT provider is empty")
 
 	// Can't assert that k.Config.JWTProvider is set to auth.DefaultJWTProvider
 }
@@ -45,22 +44,25 @@ func TestAuthMethodLoginGeneratesToken(t *testing.T) {
 		Renewable:  false,
 	}
 
-	apic := MockAPI{}
-	apic.KubernetesLoginFunc = func(vaultToken string, payload interface{}) (*api.Response, error) {
-		assert.Empty(t, vaultToken, "Vault token is not empty")
-		assert.NotEmpty(t, payload, "Payload is empty")
+	apic := FakeAPI{}
+	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+		if path == apiPathKubernetesLogin {
+			assert.Empty(t, vaultToken, "Vault token is not empty")
+			assert.NotEmpty(t, payload, "Payload is empty")
 
-		expectedReqBody := fmt.Sprintf("{\"role\": \"%s\", \"jwt\": \"%s\"}", kc.Role, jwt)
-		actualReqBody, _ := json.Marshal(payload)
-		assert.JSONEq(t, expectedReqBody, string(actualReqBody))
+			expectedReqBody := fmt.Sprintf("{\"role\": \"%s\", \"jwt\": \"%s\"}", kc.Role, jwt)
+			actualReqBody, _ := json.Marshal(payload)
+			assert.JSONEq(t, expectedReqBody, string(actualReqBody))
 
-		resBody := fmt.Sprintf(
-			"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
-			token.Value,
-			token.Expiration.Seconds(),
-			token.Renewable)
-		res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
-		return &res, nil
+			resBody := fmt.Sprintf(
+				"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
+				token.Value,
+				token.Expiration.Seconds(),
+				token.Renewable)
+			res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
+			return &res, nil
+		}
+		return nil, errors.New("write not implemented")
 	}
 
 	genToken, err := k.Login(ctx, apic)
@@ -80,11 +82,11 @@ func TestAuthMethodReturnsErrorOnJWTProviderError(t *testing.T) {
 
 	ctx := context.Background()
 
-	apic := MockAPI{}
+	apic := FakeAPI{}
 
 	genToken, err := k.Login(ctx, &apic)
 	assert.Empty(t, genToken, "Token exists")
-	assert.ErrorIs(t, err, jwtErr, "Incorrect error")
+	assert.ErrorIs(t, err, jwtErr, "Error is incorrect")
 }
 
 func TestAuthMethodLoginReturnsErrorOnRequestFailure(t *testing.T) {
@@ -101,14 +103,17 @@ func TestAuthMethodLoginReturnsErrorOnRequestFailure(t *testing.T) {
 
 	resErr := errors.New("uh-oh")
 
-	apic := MockAPI{}
-	apic.KubernetesLoginFunc = func(vaultToken string, payload interface{}) (*api.Response, error) {
-		return nil, resErr
+	apic := FakeAPI{}
+	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+		if path == apiPathKubernetesLogin {
+			return nil, resErr
+		}
+		return nil, errors.New("write not implemented")
 	}
 
 	genToken, err := k.Login(ctx, &apic)
 	assert.Empty(t, genToken, "Token exists")
-	assert.ErrorIs(t, err, resErr, "Incorrect error")
+	assert.ErrorIs(t, err, resErr, "Error is incorrect")
 }
 
 func TestAuthMethodLoginReturnsErrorOnInvalidResponseCode(t *testing.T) {
@@ -129,21 +134,24 @@ func TestAuthMethodLoginReturnsErrorOnInvalidResponseCode(t *testing.T) {
 		Renewable:  false,
 	}
 
-	apic := MockAPI{}
-	apic.KubernetesLoginFunc = func(vaultToken string, payload interface{}) (*api.Response, error) {
-		resBody := fmt.Sprintf(
-			"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
-			token.Value,
-			token.Expiration.Seconds(),
-			token.Renewable)
-		res := api.Response{StatusCode: 418, RawBody: io.NopCloser(strings.NewReader(resBody))}
-		return &res, nil
+	apic := FakeAPI{}
+	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+		if path == apiPathKubernetesLogin {
+			resBody := fmt.Sprintf(
+				"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
+				token.Value,
+				token.Expiration.Seconds(),
+				token.Renewable)
+			res := api.Response{StatusCode: 418, RawBody: io.NopCloser(strings.NewReader(resBody))}
+			return &res, nil
+		}
+		return nil, errors.New("write not implemented")
 	}
 
 	genToken, err := k.Login(ctx, &apic)
 	assert.Empty(t, genToken, "Token exists")
-	assert.Error(t, err, "Error does not exist")
-	assert.Errorf(t, err, "received invalid status code 418 for http request")
+	require.Error(t, err, "Error does not exist")
+	assert.Equal(t, err.Error(), "received invalid status code 418 for http request", "Error is incorrect")
 }
 
 func TestAuthMethodLoginReturnsErrorOnInvalidJSONResponse(t *testing.T) {
@@ -158,14 +166,18 @@ func TestAuthMethodLoginReturnsErrorOnInvalidJSONResponse(t *testing.T) {
 
 	ctx := context.Background()
 
-	apic := MockAPI{}
-	apic.KubernetesLoginFunc = func(vaultToken string, payload interface{}) (*api.Response, error) {
-		resBody := "a}"
-		res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
-		return &res, nil
+	apic := FakeAPI{}
+	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+		if path == apiPathKubernetesLogin {
+			resBody := "a}"
+			res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
+			return &res, nil
+		}
+		return nil, errors.New("write not implemented")
 	}
 
 	genToken, err := k.Login(ctx, &apic)
 	assert.Empty(t, genToken, "Token exists")
-	assert.Error(t, err, "Error does not exist")
+	require.Error(t, err, "Error does not exist")
+	assert.Equal(t, err.Error(), "invalid character 'a' looking for beginning of value", "Error is incorrect")
 }

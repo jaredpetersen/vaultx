@@ -24,9 +24,7 @@ func TestGenerateCredentialsReturnsCredentials(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up token manager
-	token := auth.Token{
-		Value: "vault token",
-	}
+	token := auth.Token{Value: "vault token"}
 	tokenManager := FakeTokenManager{}
 	tokenManager.getTokenFunc = func() auth.Token {
 		return token
@@ -41,29 +39,31 @@ func TestGenerateCredentialsReturnsCredentials(t *testing.T) {
 	dbRole := "dbrole"
 
 	// Set up mock API
-	apic := MockAPI{}
-	apic.GenerateDBCredentialsFunc = func(role string, vaultToken string) (*api.Response, error) {
-		assert.Equal(t, dbRole, role, "Inccorect DB role")
-		assert.Equal(t, vaultToken, token.Value, "Incorrect token")
+	apic := FakeAPI{}
+	apic.ReadFunc = func(ctx context.Context, path string, vaultToken string) (*api.Response, error) {
+		if path == apiPathDBCredentials+dbRole {
+			assert.Equal(t, vaultToken, token.Value, "Token is incorrect")
 
-		resBodyFmt := `{
-			"lease_id": "%s",
-			"lease_duration": %d,
-			"renewable": %t,
-			"data": {
-				"username": "%s",
-				"password": "%s"
-			}
-		}`
-		resBody := fmt.Sprintf(
-			resBodyFmt,
-			generatedLeaseID,
-			generatedLeaseExpiration,
-			generatedLeaseRenewable,
-			generatedUsername,
-			generatedPassword)
-		res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
-		return &res, nil
+			resBodyFmt := `{
+				"lease_id": "%s",
+				"lease_duration": %d,
+				"renewable": %t,
+				"data": {
+					"username": "%s",
+					"password": "%s"
+				}
+			}`
+			resBody := fmt.Sprintf(
+				resBodyFmt,
+				generatedLeaseID,
+				generatedLeaseExpiration,
+				generatedLeaseRenewable,
+				generatedUsername,
+				generatedPassword)
+			res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
+			return &res, nil
+		}
+		return nil, errors.New("read not implemented")
 	}
 
 	dbc := db.Client{
@@ -85,9 +85,7 @@ func TestGenerateCredentialsReturnsErrorOnRequestFailure(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up token manager
-	token := auth.Token{
-		Value: "vault token",
-	}
+	token := auth.Token{Value: "vault token"}
 	tokenManager := FakeTokenManager{}
 	tokenManager.getTokenFunc = func() auth.Token {
 		return token
@@ -99,9 +97,12 @@ func TestGenerateCredentialsReturnsErrorOnRequestFailure(t *testing.T) {
 	resErr := errors.New("failed request")
 
 	// Set up mock API
-	apic := MockAPI{}
-	apic.GenerateDBCredentialsFunc = func(role string, vaultToken string) (*api.Response, error) {
-		return nil, resErr
+	apic := FakeAPI{}
+	apic.ReadFunc = func(ctx context.Context, path string, vaultToken string) (*api.Response, error) {
+		if path == apiPathDBCredentials+dbRole {
+			return nil, resErr
+		}
+		return nil, errors.New("read not implemented")
 	}
 
 	dbc := db.Client{
@@ -110,17 +111,15 @@ func TestGenerateCredentialsReturnsErrorOnRequestFailure(t *testing.T) {
 	}
 
 	dbCredentials, err := dbc.GenerateCredentials(ctx, dbRole)
-	require.ErrorIs(t, err, resErr, "Error is incorrect")
-	require.Empty(t, dbCredentials, "Credentials are not empty")
+	assert.ErrorIs(t, err, resErr, "Error is incorrect")
+	assert.Empty(t, dbCredentials, "Credentials are not empty")
 }
 
 func TestGenerateCredentialsReturnsErrorOnInvalidResponseCode(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up token manager
-	token := auth.Token{
-		Value: "vault token",
-	}
+	token := auth.Token{Value: "vault token"}
 	tokenManager := FakeTokenManager{}
 	tokenManager.getTokenFunc = func() auth.Token {
 		return token
@@ -129,9 +128,10 @@ func TestGenerateCredentialsReturnsErrorOnInvalidResponseCode(t *testing.T) {
 	dbRole := "dbrole"
 
 	// Set up mock API
-	apic := MockAPI{}
-	apic.GenerateDBCredentialsFunc = func(role string, vaultToken string) (*api.Response, error) {
-		resBody := `{
+	apic := FakeAPI{}
+	apic.ReadFunc = func(ctx context.Context, path string, vaultToken string) (*api.Response, error) {
+		if path == apiPathDBCredentials+dbRole {
+			resBody := `{
 			"lease_id": "someid",
 			"lease_duration": 300,
 			"renewable": true,
@@ -140,8 +140,10 @@ func TestGenerateCredentialsReturnsErrorOnInvalidResponseCode(t *testing.T) {
 				"password": "somepassword"
 			}
 		}`
-		res := api.Response{StatusCode: 418, RawBody: io.NopCloser(strings.NewReader(resBody))}
-		return &res, nil
+			res := api.Response{StatusCode: 418, RawBody: io.NopCloser(strings.NewReader(resBody))}
+			return &res, nil
+		}
+		return nil, errors.New("read not implemented")
 	}
 
 	dbc := db.Client{
@@ -151,17 +153,15 @@ func TestGenerateCredentialsReturnsErrorOnInvalidResponseCode(t *testing.T) {
 
 	dbCredentials, err := dbc.GenerateCredentials(ctx, dbRole)
 	require.Error(t, err, "Error does not exist")
-	require.Errorf(t, err, "received invalid status code 418 for http request")
-	require.Empty(t, dbCredentials, "Credentials are not empty")
+	assert.Equal(t, err.Error(), "received invalid status code 418 for http request", "Error is incorrect")
+	assert.Empty(t, dbCredentials, "Credentials are not empty")
 }
 
 func TestGenerateCredentialsReturnsErrorOnInvalidJSONResponse(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up token manager
-	token := auth.Token{
-		Value: "vault token",
-	}
+	token := auth.Token{Value: "vault token"}
 	tokenManager := FakeTokenManager{}
 	tokenManager.getTokenFunc = func() auth.Token {
 		return token
@@ -170,11 +170,14 @@ func TestGenerateCredentialsReturnsErrorOnInvalidJSONResponse(t *testing.T) {
 	dbRole := "dbrole"
 
 	// Set up mock API
-	apic := MockAPI{}
-	apic.GenerateDBCredentialsFunc = func(role string, vaultToken string) (*api.Response, error) {
-		resBody := "a}"
-		res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
-		return &res, nil
+	apic := FakeAPI{}
+	apic.ReadFunc = func(ctx context.Context, path string, vaultToken string) (*api.Response, error) {
+		if path == apiPathDBCredentials+dbRole {
+			resBody := "a}"
+			res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
+			return &res, nil
+		}
+		return nil, errors.New("read not implemented")
 	}
 
 	dbc := db.Client{
@@ -184,7 +187,8 @@ func TestGenerateCredentialsReturnsErrorOnInvalidJSONResponse(t *testing.T) {
 
 	dbCredentials, err := dbc.GenerateCredentials(ctx, dbRole)
 	require.Error(t, err, "Error does not exist")
-	require.Empty(t, dbCredentials, "Credentials are not empty")
+	assert.Equal(t, err.Error(), "invalid character 'a' looking for beginning of value", "Error is incorrect")
+	assert.Empty(t, dbCredentials, "Credentials are not empty")
 }
 
 func TestIntegrationGenerateCredentialsReturnsCredentials(t *testing.T) {
@@ -226,9 +230,7 @@ func TestIntegrationGenerateCredentialsReturnsCredentials(t *testing.T) {
 		URL:  vaultContainer.URI,
 	}
 
-	authc := auth.Client{
-		API: &apic,
-	}
+	authc := auth.Client{API: &apic}
 	authc.SetToken(auth.Token{Value: vaultContainer.Token})
 
 	dbc := db.Client{
@@ -275,9 +277,7 @@ func TestIntegrationGenerateCredentialsReturnsErrorOnInvalidDBEngineConfig(t *te
 		URL:  vaultContainer.URI,
 	}
 
-	authc := auth.Client{
-		API: &apic,
-	}
+	authc := auth.Client{API: &apic}
 	authc.SetToken(auth.Token{Value: vaultContainer.Token})
 
 	dbc := db.Client{
@@ -286,6 +286,6 @@ func TestIntegrationGenerateCredentialsReturnsErrorOnInvalidDBEngineConfig(t *te
 	}
 
 	dbCredentials, err := dbc.GenerateCredentials(ctx, "dbrole")
-	require.Error(t, err, "Error does not exist")
-	require.Empty(t, dbCredentials, "Credentials are not empty")
+	assert.Error(t, err, "Error does not exist")
+	assert.Empty(t, dbCredentials, "Credentials are not empty")
 }

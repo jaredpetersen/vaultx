@@ -23,10 +23,8 @@ func TestGetSecretReturnsSecret(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up token manager
-	token := auth.Token{
-		Value: "vault token",
-	}
-	tokenManager := fakeTokenManager{}
+	token := auth.Token{Value: "vault token"}
+	tokenManager := FakeTokenManager{}
 	tokenManager.getTokenFunc = func() auth.Token {
 		return token
 	}
@@ -39,21 +37,20 @@ func TestGetSecretReturnsSecret(t *testing.T) {
 	secretPath := "mypath"
 
 	// Set up mock API
-	apic := fakeAPI{}
-	apic.readFunc = func(ctx context.Context, path string, vaultToken string) (*api.Response, error) {
-		if path == "/v1/secret/data/"+secretPath && vaultToken == token.Value {
+	apic := FakeAPI{}
+	apic.ReadFunc = func(ctx context.Context, path string, vaultToken string) (*api.Response, error) {
+		if path == apiPathSecret+secretPath {
+			assert.Equal(t, token.Value, vaultToken, "Vault token is incorrect")
+
 			resBody := fmt.Sprintf(
 				"{\"data\": {\"data\": {\"username\": \"%s\", \"password\": \"%s\"}, \"metadata\": {\"version\": %d}}}",
 				secretData["username"],
 				secretData["password"],
 				secretVersion)
-			res := api.Response{
-				StatusCode: 200,
-				RawBody:    io.NopCloser(strings.NewReader(resBody)),
-			}
+			res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
 			return &res, nil
 		}
-		return nil, nil
+		return nil, errors.New("read not implemented")
 	}
 
 	kvc := kv.Client{
@@ -67,19 +64,16 @@ func TestGetSecretReturnsSecret(t *testing.T) {
 	}
 
 	secret, err := kvc.GetSecret(ctx, secretPath)
-	require.NoError(t, err, "Get failure")
-	require.NotEmpty(t, secret, "Empty secret")
-	require.Equal(t, expectedSecret, *secret, "Incorrect secret")
+	assert.NoError(t, err, "Get failure")
+	assert.Equal(t, expectedSecret, *secret, "Secret is incorrect")
 }
 
 func TestGetSecretReturnsErrorOnRequestFailure(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up token manager
-	token := auth.Token{
-		Value: "vault token",
-	}
-	tokenManager := fakeTokenManager{}
+	token := auth.Token{Value: "vault token"}
+	tokenManager := FakeTokenManager{}
 	tokenManager.getTokenFunc = func() auth.Token {
 		return token
 	}
@@ -90,12 +84,12 @@ func TestGetSecretReturnsErrorOnRequestFailure(t *testing.T) {
 	secretPath := "mypath"
 
 	// Set up mock API
-	apic := fakeAPI{}
-	apic.readFunc = func(ctx context.Context, path string, vaultToken string) (*api.Response, error) {
-		if path == "/v1/secret/data/"+secretPath && vaultToken == token.Value {
+	apic := FakeAPI{}
+	apic.ReadFunc = func(ctx context.Context, path string, vaultToken string) (*api.Response, error) {
+		if path == apiPathSecret+secretPath {
 			return nil, resErr
 		}
-		return nil, nil
+		return nil, errors.New("read not implemented")
 	}
 
 	kvc := kv.Client{
@@ -104,19 +98,16 @@ func TestGetSecretReturnsErrorOnRequestFailure(t *testing.T) {
 	}
 
 	secret, err := kvc.GetSecret(ctx, secretPath)
-	require.Error(t, err, "Error does not exist")
-	require.ErrorIs(t, err, resErr, "Error is incorrect")
-	require.Empty(t, secret, "Secret is not empty")
+	assert.ErrorIs(t, err, resErr, "Error is incorrect")
+	assert.Empty(t, secret, "Secret is not empty")
 }
 
 func TestGetSecretReturnsErrorOnInvalidResponseCode(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up token manager
-	token := auth.Token{
-		Value: "vault token",
-	}
-	tokenManager := fakeTokenManager{}
+	token := auth.Token{Value: "vault token"}
+	tokenManager := FakeTokenManager{}
 	tokenManager.getTokenFunc = func() auth.Token {
 		return token
 	}
@@ -129,21 +120,18 @@ func TestGetSecretReturnsErrorOnInvalidResponseCode(t *testing.T) {
 	secretPath := "mypath"
 
 	// Set up mock API
-	apic := fakeAPI{}
-	apic.readFunc = func(ctx context.Context, path string, vaultToken string) (*api.Response, error) {
-		if path == "/v1/secret/data/"+secretPath && vaultToken == token.Value {
+	apic := FakeAPI{}
+	apic.ReadFunc = func(ctx context.Context, path string, vaultToken string) (*api.Response, error) {
+		if path == apiPathSecret+secretPath {
 			resBody := fmt.Sprintf(
 				"{\"data\": {\"data\": {\"username\": \"%s\", \"password\": \"%s\"}, \"metadata\": {\"version\": %d}}}",
 				secretData["username"],
 				secretData["password"],
 				secretVersion)
-			res := api.Response{
-				StatusCode: 418,
-				RawBody:    io.NopCloser(strings.NewReader(resBody)),
-			}
+			res := api.Response{StatusCode: 418, RawBody: io.NopCloser(strings.NewReader(resBody))}
 			return &res, nil
 		}
-		return nil, nil
+		return nil, errors.New("read not implemented")
 	}
 
 	kvc := kv.Client{
@@ -153,18 +141,16 @@ func TestGetSecretReturnsErrorOnInvalidResponseCode(t *testing.T) {
 
 	secret, err := kvc.GetSecret(ctx, secretPath)
 	require.Error(t, err, "Error does not exist")
-	require.Errorf(t, err, "received invalid status code 418 for http request")
-	require.Empty(t, secret, "Secret is not empty")
+	assert.Equal(t, err.Error(), "received invalid status code 418 for http request", "Error is incorrect")
+	assert.Empty(t, secret, "Secret is not empty")
 }
 
 func TestGetSecretReturnsErrorOnInvalidJSONResponse(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up token manager
-	token := auth.Token{
-		Value: "vault token",
-	}
-	tokenManager := fakeTokenManager{}
+	token := auth.Token{Value: "vault token"}
+	tokenManager := FakeTokenManager{}
 	tokenManager.getTokenFunc = func() auth.Token {
 		return token
 	}
@@ -172,17 +158,14 @@ func TestGetSecretReturnsErrorOnInvalidJSONResponse(t *testing.T) {
 	secretPath := "mypath"
 
 	// Set up mock API
-	apic := fakeAPI{}
-	apic.readFunc = func(ctx context.Context, path string, vaultToken string) (*api.Response, error) {
-		if path == "/v1/secret/data/"+secretPath && vaultToken == token.Value {
+	apic := FakeAPI{}
+	apic.ReadFunc = func(ctx context.Context, path string, vaultToken string) (*api.Response, error) {
+		if path == apiPathSecret+secretPath {
 			resBody := "a}"
-			res := api.Response{
-				StatusCode: 200,
-				RawBody:    io.NopCloser(strings.NewReader(resBody)),
-			}
+			res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
 			return &res, nil
 		}
-		return nil, nil
+		return nil, errors.New("read not implemented")
 	}
 
 	kvc := kv.Client{
@@ -192,17 +175,16 @@ func TestGetSecretReturnsErrorOnInvalidJSONResponse(t *testing.T) {
 
 	secret, err := kvc.GetSecret(ctx, secretPath)
 	require.Error(t, err, "Error does not exist")
-	require.Empty(t, secret, "Secret is not empty")
+	assert.Equal(t, err.Error(), "invalid character 'a' looking for beginning of value", "Error is incorrect")
+	assert.Empty(t, secret, "Secret is not empty")
 }
 
 func TestUpsertSecretDoesNotReturnError(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up token manager
-	token := auth.Token{
-		Value: "vault token",
-	}
-	tokenManager := fakeTokenManager{}
+	token := auth.Token{Value: "vault token"}
+	tokenManager := FakeTokenManager{}
 	tokenManager.getTokenFunc = func() auth.Token {
 		return token
 	}
@@ -214,9 +196,11 @@ func TestUpsertSecretDoesNotReturnError(t *testing.T) {
 	}
 
 	// Set up mock API
-	apic := fakeAPI{}
-	apic.writeFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
-		if path == "/v1/secret/data/"+secretPath && vaultToken == token.Value && payload != nil {
+	apic := FakeAPI{}
+	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+		if path == apiPathSecret+secretPath {
+			assert.Equal(t, token.Value, vaultToken, "Vault token is incorrect")
+
 			expectedReqBody := fmt.Sprintf(
 				"{\"data\": {\"username\": \"%s\", \"password\": \"%s\"}}",
 				secretData["username"],
@@ -225,13 +209,10 @@ func TestUpsertSecretDoesNotReturnError(t *testing.T) {
 			assert.JSONEq(t, expectedReqBody, string(actualReqBody))
 
 			resBody := "{\"data\": {\"version\": 493}}"
-			res := api.Response{
-				StatusCode: 200,
-				RawBody:    io.NopCloser(strings.NewReader(resBody)),
-			}
+			res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
 			return &res, nil
 		}
-		return nil, nil
+		return nil, errors.New("write not implemented")
 	}
 
 	kvc := kv.Client{
@@ -240,17 +221,15 @@ func TestUpsertSecretDoesNotReturnError(t *testing.T) {
 	}
 
 	err := kvc.UpsertSecret(ctx, secretPath, secretData)
-	require.NoError(t, err, "Upsert failure")
+	assert.NoError(t, err, "Upsert failure")
 }
 
 func TestUpsertSecretReturnsErrorOnRequestFailure(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up token manager
-	token := auth.Token{
-		Value: "vault token",
-	}
-	tokenManager := fakeTokenManager{}
+	token := auth.Token{Value: "vault token"}
+	tokenManager := FakeTokenManager{}
 	tokenManager.getTokenFunc = func() auth.Token {
 		return token
 	}
@@ -265,12 +244,12 @@ func TestUpsertSecretReturnsErrorOnRequestFailure(t *testing.T) {
 	resErr := errors.New("failed request")
 
 	// Set up mock API
-	apic := fakeAPI{}
-	apic.writeFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
-		if path == "/v1/secret/data/"+secretPath && vaultToken == token.Value {
+	apic := FakeAPI{}
+	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+		if path == apiPathSecret+secretPath {
 			return nil, resErr
 		}
-		return nil, nil
+		return nil, errors.New("write not implemented")
 	}
 
 	kvc := kv.Client{
@@ -279,18 +258,15 @@ func TestUpsertSecretReturnsErrorOnRequestFailure(t *testing.T) {
 	}
 
 	err := kvc.UpsertSecret(ctx, secretPath, secretData)
-	require.Error(t, err, "Error does not exist")
-	require.ErrorIs(t, err, resErr, "Error is incorrect")
+	assert.ErrorIs(t, err, resErr, "Error is incorrect")
 }
 
 func TestUpsertSecretReturnsErrorOnInvalidResponseCode(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up token manager
-	token := auth.Token{
-		Value: "vault token",
-	}
-	tokenManager := fakeTokenManager{}
+	token := auth.Token{Value: "vault token"}
+	tokenManager := FakeTokenManager{}
 	tokenManager.getTokenFunc = func() auth.Token {
 		return token
 	}
@@ -302,18 +278,14 @@ func TestUpsertSecretReturnsErrorOnInvalidResponseCode(t *testing.T) {
 	}
 
 	// Set up mock API
-	apic := fakeAPI{}
-	apic.writeFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
-		if path == "/v1/secret/data/"+secretPath && vaultToken == token.Value {
-			// Valid body, incorrect status code
+	apic := FakeAPI{}
+	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+		if path == apiPathSecret+secretPath {
 			resBody := "{\"data\": {\"version\": 493}}"
-			res := api.Response{
-				StatusCode: 418,
-				RawBody:    io.NopCloser(strings.NewReader(resBody)),
-			}
+			res := api.Response{StatusCode: 418, RawBody: io.NopCloser(strings.NewReader(resBody))}
 			return &res, nil
 		}
-		return nil, nil
+		return nil, errors.New("write not implemented")
 	}
 
 	kvc := kv.Client{
@@ -323,17 +295,15 @@ func TestUpsertSecretReturnsErrorOnInvalidResponseCode(t *testing.T) {
 
 	err := kvc.UpsertSecret(ctx, secretPath, secretData)
 	require.Error(t, err, "Error does not exist")
-	require.Errorf(t, err, "received invalid status code 418 for http request")
+	assert.Equal(t, err.Error(), "received invalid status code 418 for http request", "Error is incorrect")
 }
 
 func TestUpsertSecretReturnsErrorOnInvalidJSONResponse(t *testing.T) {
 	ctx := context.Background()
 
 	// Set up token manager
-	token := auth.Token{
-		Value: "vault token",
-	}
-	tokenManager := fakeTokenManager{}
+	token := auth.Token{Value: "vault token"}
+	tokenManager := FakeTokenManager{}
 	tokenManager.getTokenFunc = func() auth.Token {
 		return token
 	}
@@ -345,17 +315,14 @@ func TestUpsertSecretReturnsErrorOnInvalidJSONResponse(t *testing.T) {
 	}
 
 	// Set up mock API
-	apic := fakeAPI{}
-	apic.writeFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
-		if path == "/v1/secret/data/"+secretPath && vaultToken == token.Value {
+	apic := FakeAPI{}
+	apic.WriteFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+		if path == apiPathSecret+secretPath {
 			resBody := "a}"
-			res := api.Response{
-				StatusCode: 200,
-				RawBody:    io.NopCloser(strings.NewReader(resBody)),
-			}
+			res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
 			return &res, nil
 		}
-		return nil, nil
+		return nil, errors.New("write not implemented")
 	}
 
 	kvc := kv.Client{
@@ -365,6 +332,7 @@ func TestUpsertSecretReturnsErrorOnInvalidJSONResponse(t *testing.T) {
 
 	err := kvc.UpsertSecret(ctx, secretPath, secretData)
 	require.Error(t, err, "Error does not exist")
+	assert.Equal(t, err.Error(), "invalid character 'a' looking for beginning of value", "Error is incorrect")
 }
 
 func TestIntegrationUpsertSecretDoesNotReturnError(t *testing.T) {
@@ -383,9 +351,7 @@ func TestIntegrationUpsertSecretDoesNotReturnError(t *testing.T) {
 		URL:  vaultContainer.URI,
 	}
 
-	authc := auth.Client{
-		API: &apic,
-	}
+	authc := auth.Client{API: &apic}
 	authc.SetToken(auth.Token{Value: vaultContainer.Token})
 
 	kvc := kv.Client{
@@ -400,7 +366,7 @@ func TestIntegrationUpsertSecretDoesNotReturnError(t *testing.T) {
 	}
 
 	err = kvc.UpsertSecret(ctx, secretPath, secretData)
-	require.NoError(t, err, "Upsert failure")
+	assert.NoError(t, err, "Upsert failure")
 }
 
 func TestIntegrationUpsertGetSecretReturnsSecret(t *testing.T) {
@@ -419,9 +385,7 @@ func TestIntegrationUpsertGetSecretReturnsSecret(t *testing.T) {
 		URL:  vaultContainer.URI,
 	}
 
-	authc := auth.Client{
-		API: &apic,
-	}
+	authc := auth.Client{API: &apic}
 	authc.SetToken(auth.Token{Value: vaultContainer.Token})
 
 	kvc := kv.Client{
@@ -444,9 +408,9 @@ func TestIntegrationUpsertGetSecretReturnsSecret(t *testing.T) {
 	}
 
 	secret, err := kvc.GetSecret(ctx, secretPath)
-	require.NoError(t, err, "Get failure")
-	require.NotEmpty(t, secret, "Secret is empty")
-	require.Equal(t, expectedSecret, *secret, "Secret is incorrect")
+	assert.NoError(t, err, "Get failure")
+	assert.NotEmpty(t, secret, "Secret is empty")
+	assert.Equal(t, expectedSecret, *secret, "Secret is incorrect")
 }
 
 func TestIntegrationGetSecretReturnsEmptyForMissingSecret(t *testing.T) {
@@ -465,9 +429,7 @@ func TestIntegrationGetSecretReturnsEmptyForMissingSecret(t *testing.T) {
 		URL:  vaultContainer.URI,
 	}
 
-	authc := auth.Client{
-		API: &apic,
-	}
+	authc := auth.Client{API: &apic}
 	authc.SetToken(auth.Token{Value: vaultContainer.Token})
 
 	kvc := kv.Client{
@@ -478,6 +440,6 @@ func TestIntegrationGetSecretReturnsEmptyForMissingSecret(t *testing.T) {
 	secretPath := "mypath"
 
 	secret, err := kvc.GetSecret(ctx, secretPath)
-	require.NoError(t, err, "Get failure")
-	require.Empty(t, secret, "Secret is not empty")
+	assert.NoError(t, err, "Get failure")
+	assert.Empty(t, secret, "Secret is not empty")
 }

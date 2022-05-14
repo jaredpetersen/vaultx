@@ -7,30 +7,30 @@ import (
 	"github.com/jaredpetersen/vaultx/auth"
 )
 
-// fakeAPI is a test fake for auth.API.
-type fakeAPI struct {
-	writeFunc func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error)
-	readFunc  func(ctx context.Context, path string, vaultToken string) (*api.Response, error)
+// FakeAPI is a test fake for auth.API.
+type FakeAPI struct {
+	WriteFunc func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error)
+	ReadFunc  func(ctx context.Context, path string, vaultToken string) (*api.Response, error)
 }
 
-func (f fakeAPI) Write(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
-	return f.writeFunc(ctx, path, vaultToken, payload)
+func (f FakeAPI) Write(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
+	return f.WriteFunc(ctx, path, vaultToken, payload)
 }
 
-func (f fakeAPI) Read(ctx context.Context, path string, vaultToken string) (*api.Response, error) {
-	return f.readFunc(ctx, path, vaultToken)
+func (f FakeAPI) Read(ctx context.Context, path string, vaultToken string) (*api.Response, error) {
+	return f.ReadFunc(ctx, path, vaultToken)
 }
 
-// fakeTokenManager is a test fake for auth.TokenManager.
-type fakeTokenManager struct {
-	setTokenFunc func(token auth.Token)
-	getTokenFunc func() auth.Token
+// FakeTokenManager is a test fake for auth.TokenManager.
+type FakeTokenManager struct {
+	SetTokenFunc func(token auth.Token)
+	GetTokenFunc func() auth.Token
 }
 
-func (f fakeTokenManager) SetToken(token auth.Token) {
-	f.setTokenFunc(token)
+func (f FakeTokenManager) SetToken(token auth.Token) {
+	f.SetTokenFunc(token)
 }
 
-func (f fakeTokenManager) GetToken() auth.Token {
-	return f.getTokenFunc()
+func (f FakeTokenManager) GetToken() auth.Token {
+	return f.GetTokenFunc()
 }
