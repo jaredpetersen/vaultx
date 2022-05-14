@@ -109,6 +109,7 @@ func TestRenewSelfRenewsTokenAndSetsToken(t *testing.T) {
 	apic := MockAPI{}
 	apic.RenewSelfFunc = func(vaultToken string, payload interface{}) (*api.Response, error) {
 		assert.Equal(t, token.Value, vaultToken, "Incorrect token")
+		assert.Empty(t, payload, "Payload is not empty")
 
 		resBody := fmt.Sprintf(
 			"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",

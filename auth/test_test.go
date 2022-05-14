@@ -19,7 +19,7 @@ type MockAPI struct {
 }
 
 func (m MockAPI) Write(_ context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
-	if path == apiPathRenew && payload == nil {
+	if path == apiPathRenew {
 		return m.RenewSelfFunc(vaultToken, payload)
 	}
 	return nil, errors.New("not implemented")

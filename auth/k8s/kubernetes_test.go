@@ -45,22 +45,22 @@ func TestAuthMethodLoginGeneratesToken(t *testing.T) {
 		Renewable:  false,
 	}
 
-	apic := fakeAPI{}
-	apic.writeFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
-		if path == "/v1/auth/kubernetes/login" && vaultToken == "" && payload != nil {
-			expectedReqBody := fmt.Sprintf("{\"role\": \"%s\", \"jwt\": \"%s\"}", kc.Role, jwt)
-			actualReqBody, _ := json.Marshal(payload)
-			assert.JSONEq(t, expectedReqBody, string(actualReqBody))
+	apic := MockAPI{}
+	apic.KubernetesLoginFunc = func(vaultToken string, payload interface{}) (*api.Response, error) {
+		assert.Empty(t, vaultToken, "Vault token is not empty")
+		assert.NotEmpty(t, payload, "Payload is empty")
 
-			resBody := fmt.Sprintf(
-				"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
-				token.Value,
-				token.Expiration.Seconds(),
-				token.Renewable)
-			res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
-			return &res, nil
-		}
-		return nil, nil
+		expectedReqBody := fmt.Sprintf("{\"role\": \"%s\", \"jwt\": \"%s\"}", kc.Role, jwt)
+		actualReqBody, _ := json.Marshal(payload)
+		assert.JSONEq(t, expectedReqBody, string(actualReqBody))
+
+		resBody := fmt.Sprintf(
+			"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
+			token.Value,
+			token.Expiration.Seconds(),
+			token.Renewable)
+		res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
+		return &res, nil
 	}
 
 	genToken, err := k.Login(ctx, apic)
@@ -80,7 +80,7 @@ func TestAuthMethodReturnsErrorOnJWTProviderError(t *testing.T) {
 
 	ctx := context.Background()
 
-	apic := fakeAPI{}
+	apic := MockAPI{}
 
 	genToken, err := k.Login(ctx, &apic)
 	assert.Empty(t, genToken, "Token exists")
@@ -101,12 +101,9 @@ func TestAuthMethodLoginReturnsErrorOnRequestFailure(t *testing.T) {
 
 	resErr := errors.New("uh-oh")
 
-	apic := fakeAPI{}
-	apic.writeFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
-		if path == "/v1/auth/kubernetes/login" && vaultToken == "" {
-			return nil, resErr
-		}
-		return nil, nil
+	apic := MockAPI{}
+	apic.KubernetesLoginFunc = func(vaultToken string, payload interface{}) (*api.Response, error) {
+		return nil, resErr
 	}
 
 	genToken, err := k.Login(ctx, &apic)
@@ -132,18 +129,15 @@ func TestAuthMethodLoginReturnsErrorOnInvalidResponseCode(t *testing.T) {
 		Renewable:  false,
 	}
 
-	apic := fakeAPI{}
-	apic.writeFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
-		if path == "/v1/auth/kubernetes/login" && vaultToken == "" {
-			resBody := fmt.Sprintf(
-				"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
-				token.Value,
-				token.Expiration.Seconds(),
-				token.Renewable)
-			res := api.Response{StatusCode: 418, RawBody: io.NopCloser(strings.NewReader(resBody))}
-			return &res, nil
-		}
-		return nil, nil
+	apic := MockAPI{}
+	apic.KubernetesLoginFunc = func(vaultToken string, payload interface{}) (*api.Response, error) {
+		resBody := fmt.Sprintf(
+			"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
+			token.Value,
+			token.Expiration.Seconds(),
+			token.Renewable)
+		res := api.Response{StatusCode: 418, RawBody: io.NopCloser(strings.NewReader(resBody))}
+		return &res, nil
 	}
 
 	genToken, err := k.Login(ctx, &apic)
@@ -164,14 +158,11 @@ func TestAuthMethodLoginReturnsErrorOnInvalidJSONResponse(t *testing.T) {
 
 	ctx := context.Background()
 
-	apic := fakeAPI{}
-	apic.writeFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
-		if path == "/v1/auth/kubernetes/login" && vaultToken == "" {
-			resBody := "a}"
-			res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
-			return &res, nil
-		}
-		return nil, nil
+	apic := MockAPI{}
+	apic.KubernetesLoginFunc = func(vaultToken string, payload interface{}) (*api.Response, error) {
+		resBody := "a}"
+		res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
+		return &res, nil
 	}
 
 	genToken, err := k.Login(ctx, &apic)
