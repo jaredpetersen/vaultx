@@ -9,8 +9,6 @@ import (
 	"testing"
 
 	"github.com/hashicorp/go-cleanhttp"
-	"github.com/stretchr/testify/require"
-
 	"github.com/jaredpetersen/vaultx/api"
 )
 

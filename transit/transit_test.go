@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/hashicorp/go-cleanhttp"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/jaredpetersen/vaultx/api"
@@ -48,9 +47,9 @@ func TestEncryptEncryptsData(t *testing.T) {
 	}
 
 	encrypted, err := transitc.Encrypt(ctx, transitKey, []byte("this is my secret"))
-	assert.NoError(t, err, "Encryption failure")
-	assert.NotEmpty(t, encrypted, "Encrypted value is empty")
-	assert.True(t, strings.HasPrefix(encrypted, "vault:v1:"))
+	require.NoError(t, err, "Encryption failure")
+	require.NotEmpty(t, encrypted, "Encrypted value is empty")
+	require.True(t, strings.HasPrefix(encrypted, "vault:v1:"))
 }
 
 func TestEncryptReturnsErrorOnRequestFailure(t *testing.T) {
@@ -82,7 +81,6 @@ func TestEncryptReturnsErrorOnRequestFailure(t *testing.T) {
 		TokenManager: &tokenManager,
 	}
 	encrypted, err := transitc.Encrypt(ctx, transitKey, []byte("this is my secret"))
-	require.Error(t, err, "Error does not exist")
 	require.ErrorIs(t, err, resErr, "Error is incorrect")
 	require.Empty(t, encrypted, "Encrypted value is not empty")
 }
@@ -116,8 +114,8 @@ func TestEncryptReturnsErrorOnInvalidResponseCode(t *testing.T) {
 	}
 	encrypted, err := transitc.Encrypt(ctx, transitKey, []byte("this is my secret"))
 	require.Error(t, err, "Error does not exist")
-	assert.Equal(t, err.Error(), "received invalid status code 418 for http request", "Error is incorrect")
-	assert.Empty(t, encrypted, "Encrypted value is not empty")
+	require.Equal(t, err.Error(), "received invalid status code 418 for http request", "Error is incorrect")
+	require.Empty(t, encrypted, "Encrypted value is not empty")
 }
 
 func TestEncryptReturnsErrorOnInvalidJSONResponse(t *testing.T) {
@@ -242,7 +240,7 @@ func TestEncryptBatchEncryptsData(t *testing.T) {
 	encryptedBatch, err := transitc.EncryptBatch(ctx, transitKey, []byte(secretA), []byte(secretB), []byte(secretC))
 	require.NoError(t, err, "Encryption failure")
 	require.NotEmpty(t, encryptedBatch, "Encrypted batch is empty")
-	require.Equal(t, 3, len(encryptedBatch), "Incorrect number of encrypted items")
+	require.Len(t, encryptedBatch, 3, "Incorrect number of encrypted items")
 	require.Equal(t, secretAEncrypted, encryptedBatch[0])
 	require.Equal(t, secretBEncrypted, encryptedBatch[1])
 	require.Equal(t, secretCEncrypted, encryptedBatch[2])
@@ -329,8 +327,8 @@ func TestEncryptBatchReturnsErrorOnInvalidResponseCode(t *testing.T) {
 
 	encryptedBatch, err := transitc.EncryptBatch(ctx, transitKey, []byte(secretA), []byte(secretB), []byte(secretC))
 	require.Error(t, err, "Error does not exist")
-	assert.Equal(t, err.Error(), "received invalid status code 418 for http request", "Error is incorrect")
-	assert.Empty(t, encryptedBatch, "Encrypted batch is not empty")
+	require.Equal(t, err.Error(), "received invalid status code 418 for http request", "Error is incorrect")
+	require.Empty(t, encryptedBatch, "Encrypted batch is not empty")
 }
 
 func TestEncryptBatchReturnsErrorOnInvalidJSONResponse(t *testing.T) {
@@ -408,7 +406,7 @@ func TestIntegrationEncryptBatchEncryptsData(t *testing.T) {
 	encryptedBatch, err := transitc.EncryptBatch(ctx, transitKey, []byte(secretA), []byte(secretB), []byte(secretC))
 	require.NoError(t, err, "Encryption failure")
 	require.NotEmpty(t, encryptedBatch, "Encrypted batch is empty")
-	require.Equal(t, 3, len(encryptedBatch), "Incorrect number of encrypted items")
+	require.Len(t, encryptedBatch, 3, "Incorrect number of encrypted items")
 
 	for _, encrypted := range encryptedBatch {
 		require.True(t, strings.HasPrefix(encrypted, "vault:v1:"))
@@ -481,7 +479,6 @@ func TestDecryptReturnsErrorOnRequestFailure(t *testing.T) {
 		TokenManager: &tokenManager,
 	}
 	decrypted, err := transitc.Decrypt(ctx, transitKey, "vault:v1:asdfasdfasdf")
-	require.Error(t, err, "Error does not exist")
 	require.ErrorIs(t, err, resErr, "Error is incorrect")
 	require.Empty(t, decrypted, "Decrypted value is not empty")
 }
@@ -515,8 +512,8 @@ func TestDecryptReturnsErrorOnInvalidResponseCode(t *testing.T) {
 	}
 	decrypted, err := transitc.Decrypt(ctx, transitKey, "vault:v1:asdfasdfasdf")
 	require.Error(t, err, "Error does not exist")
-	assert.Equal(t, err.Error(), "received invalid status code 418 for http request", "Error is incorrect")
-	assert.Empty(t, decrypted, "Encrypted value is not empty")
+	require.Equal(t, err.Error(), "received invalid status code 418 for http request", "Error is incorrect")
+	require.Empty(t, decrypted, "Encrypted value is not empty")
 }
 
 func TestDecryptReturnsErrorOnInvalidJSONResponse(t *testing.T) {
@@ -753,8 +750,8 @@ func TestDecryptBatchReturnsErrorOnInvalidResponseCode(t *testing.T) {
 
 	decryptedBatch, err := transitc.DecryptBatch(ctx, transitKey, "vault:v1:asdfasdfasdf", "vault:v1:qwertyqwerty", "vault:v1:zxcvbnzxcvbn")
 	require.Error(t, err, "Error does not exist")
-	assert.Equal(t, err.Error(), "received invalid status code 418 for http request", "Error is incorrect")
-	assert.Empty(t, decryptedBatch, "Encrypted batch is not empty")
+	require.Equal(t, err.Error(), "received invalid status code 418 for http request", "Error is incorrect")
+	require.Empty(t, decryptedBatch, "Encrypted batch is not empty")
 }
 
 func TestDecryptBatchReturnsErrorOnInvalidJSONResponse(t *testing.T) {

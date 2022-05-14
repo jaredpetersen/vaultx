@@ -13,7 +13,6 @@ import (
 	"github.com/jaredpetersen/vaultx/api"
 	"github.com/jaredpetersen/vaultx/auth"
 	"github.com/jaredpetersen/vaultx/auth/k8s"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -21,7 +20,7 @@ func TestNewProvidesDefaultJWTProvider(t *testing.T) {
 	kc := k8s.Config{Role: "my-role"}
 	k := k8s.New(kc)
 
-	assert.NotEmpty(t, k.Config.JWTProvider, "JWT provider is empty")
+	require.NotEmpty(t, k.Config.JWTProvider, "JWT provider is empty")
 
 	// Can't assert that k.Config.JWTProvider is set to auth.DefaultJWTProvider
 }
@@ -59,8 +58,8 @@ func TestAuthMethodLoginGeneratesToken(t *testing.T) {
 	}
 
 	genToken, err := k.Login(ctx, apic)
-	assert.NoError(t, err, "Login failure")
-	assert.Equal(t, token, genToken, "Token is incorrect")
+	require.NoError(t, err, "Login failure")
+	require.Equal(t, token, genToken, "Token is incorrect")
 }
 
 func TestAuthMethodLoginCorrectlyCommunicatesWithAPI(t *testing.T) {
@@ -86,12 +85,12 @@ func TestAuthMethodLoginCorrectlyCommunicatesWithAPI(t *testing.T) {
 		if path == apiPathKubernetesLogin {
 			// Make behavior assertions in our "fake" because we can't do a real integration test
 
-			assert.Empty(t, vaultToken, "Vault token is not empty")
-			assert.NotEmpty(t, payload, "Payload is empty")
+			require.Empty(t, vaultToken, "Vault token is not empty")
+			require.NotEmpty(t, payload, "Payload is empty")
 
 			expectedReqBody := fmt.Sprintf("{\"role\": \"%s\", \"jwt\": \"%s\"}", kc.Role, jwt)
 			actualReqBody, _ := json.Marshal(payload)
-			assert.JSONEq(t, expectedReqBody, string(actualReqBody))
+			require.JSONEq(t, expectedReqBody, string(actualReqBody))
 
 			resBody := fmt.Sprintf(
 				"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
@@ -105,8 +104,8 @@ func TestAuthMethodLoginCorrectlyCommunicatesWithAPI(t *testing.T) {
 	}
 
 	genToken, err := k.Login(ctx, apic)
-	assert.NoError(t, err, "Login failure")
-	assert.Equal(t, token, genToken, "Token is incorrect")
+	require.NoError(t, err, "Login failure")
+	require.Equal(t, token, genToken, "Token is incorrect")
 }
 
 func TestAuthMethodReturnsErrorOnJWTProviderError(t *testing.T) {
@@ -124,8 +123,8 @@ func TestAuthMethodReturnsErrorOnJWTProviderError(t *testing.T) {
 	apic := FakeAPI{}
 
 	genToken, err := k.Login(ctx, &apic)
-	assert.Empty(t, genToken, "Token exists")
-	assert.ErrorIs(t, err, jwtErr, "Error is incorrect")
+	require.Empty(t, genToken, "Token exists")
+	require.ErrorIs(t, err, jwtErr, "Error is incorrect")
 }
 
 func TestAuthMethodLoginReturnsErrorOnRequestFailure(t *testing.T) {
@@ -151,8 +150,8 @@ func TestAuthMethodLoginReturnsErrorOnRequestFailure(t *testing.T) {
 	}
 
 	genToken, err := k.Login(ctx, &apic)
-	assert.Empty(t, genToken, "Token exists")
-	assert.ErrorIs(t, err, resErr, "Error is incorrect")
+	require.Empty(t, genToken, "Token exists")
+	require.ErrorIs(t, err, resErr, "Error is incorrect")
 }
 
 func TestAuthMethodLoginReturnsErrorOnInvalidResponseCode(t *testing.T) {
@@ -188,9 +187,9 @@ func TestAuthMethodLoginReturnsErrorOnInvalidResponseCode(t *testing.T) {
 	}
 
 	genToken, err := k.Login(ctx, &apic)
-	assert.Empty(t, genToken, "Token exists")
+	require.Empty(t, genToken, "Token exists")
 	require.Error(t, err, "Error does not exist")
-	assert.Equal(t, err.Error(), "received invalid status code 418 for http request", "Error is incorrect")
+	require.Equal(t, err.Error(), "received invalid status code 418 for http request", "Error is incorrect")
 }
 
 func TestAuthMethodLoginReturnsErrorOnInvalidJSONResponse(t *testing.T) {
@@ -216,7 +215,7 @@ func TestAuthMethodLoginReturnsErrorOnInvalidJSONResponse(t *testing.T) {
 	}
 
 	genToken, err := k.Login(ctx, &apic)
-	assert.Empty(t, genToken, "Token exists")
+	require.Empty(t, genToken, "Token exists")
 	require.Error(t, err, "Error does not exist")
-	assert.Equal(t, err.Error(), "invalid character 'a' looking for beginning of value", "Error is incorrect")
+	require.Equal(t, err.Error(), "invalid character 'a' looking for beginning of value", "Error is incorrect")
 }

@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/hashicorp/go-cleanhttp"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/jaredpetersen/vaultx/api"
@@ -61,8 +60,8 @@ func TestGetSecretReturnsSecret(t *testing.T) {
 	}
 
 	secret, err := kvc.GetSecret(ctx, secretPath)
-	assert.NoError(t, err, "Get failure")
-	assert.Equal(t, expectedSecret, *secret, "Secret is incorrect")
+	require.NoError(t, err, "Get failure")
+	require.Equal(t, expectedSecret, *secret, "Secret is incorrect")
 }
 
 func TestGetSecretReturnsErrorOnRequestFailure(t *testing.T) {
@@ -95,8 +94,8 @@ func TestGetSecretReturnsErrorOnRequestFailure(t *testing.T) {
 	}
 
 	secret, err := kvc.GetSecret(ctx, secretPath)
-	assert.ErrorIs(t, err, resErr, "Error is incorrect")
-	assert.Empty(t, secret, "Secret is not empty")
+	require.ErrorIs(t, err, resErr, "Error is incorrect")
+	require.Empty(t, secret, "Secret is not empty")
 }
 
 func TestGetSecretReturnsErrorOnInvalidResponseCode(t *testing.T) {
@@ -138,8 +137,8 @@ func TestGetSecretReturnsErrorOnInvalidResponseCode(t *testing.T) {
 
 	secret, err := kvc.GetSecret(ctx, secretPath)
 	require.Error(t, err, "Error does not exist")
-	assert.Equal(t, err.Error(), "received invalid status code 418 for http request", "Error is incorrect")
-	assert.Empty(t, secret, "Secret is not empty")
+	require.Equal(t, err.Error(), "received invalid status code 418 for http request", "Error is incorrect")
+	require.Empty(t, secret, "Secret is not empty")
 }
 
 func TestGetSecretReturnsErrorOnInvalidJSONResponse(t *testing.T) {
@@ -172,8 +171,8 @@ func TestGetSecretReturnsErrorOnInvalidJSONResponse(t *testing.T) {
 
 	secret, err := kvc.GetSecret(ctx, secretPath)
 	require.Error(t, err, "Error does not exist")
-	assert.Equal(t, err.Error(), "invalid character 'a' looking for beginning of value", "Error is incorrect")
-	assert.Empty(t, secret, "Secret is not empty")
+	require.Equal(t, err.Error(), "invalid character 'a' looking for beginning of value", "Error is incorrect")
+	require.Empty(t, secret, "Secret is not empty")
 }
 
 func TestUpsertSecretDoesNotReturnError(t *testing.T) {
@@ -209,7 +208,7 @@ func TestUpsertSecretDoesNotReturnError(t *testing.T) {
 	}
 
 	err := kvc.UpsertSecret(ctx, secretPath, secretData)
-	assert.NoError(t, err, "Upsert failure")
+	require.NoError(t, err, "Upsert failure")
 }
 
 func TestUpsertSecretReturnsErrorOnRequestFailure(t *testing.T) {
@@ -246,7 +245,7 @@ func TestUpsertSecretReturnsErrorOnRequestFailure(t *testing.T) {
 	}
 
 	err := kvc.UpsertSecret(ctx, secretPath, secretData)
-	assert.ErrorIs(t, err, resErr, "Error is incorrect")
+	require.ErrorIs(t, err, resErr, "Error is incorrect")
 }
 
 func TestUpsertSecretReturnsErrorOnInvalidResponseCode(t *testing.T) {
@@ -283,7 +282,7 @@ func TestUpsertSecretReturnsErrorOnInvalidResponseCode(t *testing.T) {
 
 	err := kvc.UpsertSecret(ctx, secretPath, secretData)
 	require.Error(t, err, "Error does not exist")
-	assert.Equal(t, err.Error(), "received invalid status code 418 for http request", "Error is incorrect")
+	require.Equal(t, err.Error(), "received invalid status code 418 for http request", "Error is incorrect")
 }
 
 func TestUpsertSecretReturnsErrorOnInvalidJSONResponse(t *testing.T) {
@@ -320,7 +319,7 @@ func TestUpsertSecretReturnsErrorOnInvalidJSONResponse(t *testing.T) {
 
 	err := kvc.UpsertSecret(ctx, secretPath, secretData)
 	require.Error(t, err, "Error does not exist")
-	assert.Equal(t, err.Error(), "invalid character 'a' looking for beginning of value", "Error is incorrect")
+	require.Equal(t, err.Error(), "invalid character 'a' looking for beginning of value", "Error is incorrect")
 }
 
 func TestIntegrationUpsertSecretDoesNotReturnError(t *testing.T) {
@@ -354,7 +353,7 @@ func TestIntegrationUpsertSecretDoesNotReturnError(t *testing.T) {
 	}
 
 	err = kvc.UpsertSecret(ctx, secretPath, secretData)
-	assert.NoError(t, err, "Upsert failure")
+	require.NoError(t, err, "Upsert failure")
 }
 
 func TestIntegrationUpsertGetSecretReturnsSecret(t *testing.T) {
@@ -396,9 +395,9 @@ func TestIntegrationUpsertGetSecretReturnsSecret(t *testing.T) {
 	}
 
 	secret, err := kvc.GetSecret(ctx, secretPath)
-	assert.NoError(t, err, "Get failure")
-	assert.NotEmpty(t, secret, "Secret is empty")
-	assert.Equal(t, expectedSecret, *secret, "Secret is incorrect")
+	require.NoError(t, err, "Get failure")
+	require.NotEmpty(t, secret, "Secret is empty")
+	require.Equal(t, expectedSecret, *secret, "Secret is incorrect")
 }
 
 func TestIntegrationGetSecretReturnsEmptyForMissingSecret(t *testing.T) {
@@ -428,6 +427,6 @@ func TestIntegrationGetSecretReturnsEmptyForMissingSecret(t *testing.T) {
 	secretPath := "mypath"
 
 	secret, err := kvc.GetSecret(ctx, secretPath)
-	assert.NoError(t, err, "Get failure")
-	assert.Empty(t, secret, "Secret is not empty")
+	require.NoError(t, err, "Get failure")
+	require.Empty(t, secret, "Secret is not empty")
 }
