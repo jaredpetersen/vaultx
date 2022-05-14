@@ -1,3 +1,6 @@
+// Package auth contains all the functionality necessary for authenticating with Vault.
+//
+// See https://www.vaultproject.io/api-docs/auth for more information.
 package auth
 
 import (
@@ -46,8 +49,6 @@ type Event struct {
 }
 
 // Client is the gateway into the auth functionality provided by Vault.
-//
-// See https://www.vaultproject.io/api-docs/auth for more information.
 type Client struct {
 	API        api.API
 	AuthMethod Method
@@ -86,8 +87,7 @@ func (c *Client) Login(ctx context.Context) error {
 	return nil
 }
 
-// RenewSelf initiates a token renewal request for the internal Vault auth token that the client uses to
-// communicate with Vault.
+// RenewSelf renews the internal Vault auth token that the client uses to communicate with Vault.
 //
 // See https://www.vaultproject.io/api/auth/token#renew-a-token-self for more information.
 func (c *Client) RenewSelf(ctx context.Context) error {

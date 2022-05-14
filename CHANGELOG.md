@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.7] - 2022-05-14
+### Changed
+- Collapsed k8s package into the auth package to make it less annoying to set up authentication
+- All requests to the Vault API are now sent with a `x-vault-request` header to support the Vault Agent
+- Improved package documentation
+
 ## [0.0.6] - 2022-05-14
 ### Changed
 - Tests use fakes instead of generated mocks

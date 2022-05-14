@@ -1,3 +1,6 @@
+// Package transit contains all the functionality necessary for interacting with Vault's transit secrets engine.
+//
+// See https://www.vaultproject.io/docs/secrets/transit for more information.
 package transit
 
 import (
@@ -10,8 +13,6 @@ import (
 )
 
 // Client is a gateway into the functionality provided by Vault's transit secret engine.
-//
-// For more information, see https://www.vaultproject.io/docs/secrets/transit.
 type Client struct {
 	API          api.API
 	TokenManager auth.TokenManager

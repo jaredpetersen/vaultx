@@ -1,3 +1,5 @@
+// Package api provides functionality for making requests against the Vault API. This can be used by clients to
+// perform actions manually that are not yet supported by vaultx.
 package api
 
 import (
@@ -9,10 +11,10 @@ import (
 	"net/http"
 )
 
-// API executes actions against the Vault API manually.
-//
-// This is primarily used by the various vaultx clients to communicate with Vault but can also be used by consumers
-// for functionality not yet implemented by the package.
+const vaultTokenHeader = "x-vault-token"
+const vaultRequestHeader = "x-vault-request"
+
+// API makes requests against the Vault API.
 type API interface {
 	// Write sends data to the Vault API.
 	Write(ctx context.Context, path string, vaultToken string, payload interface{}) (*Response, error)
@@ -51,8 +53,10 @@ func (c *Client) Write(ctx context.Context, path string, vaultToken string, payl
 		return nil, fmt.Errorf("failed to create http request: %w", err)
 	}
 
+	req.Header.Set(vaultRequestHeader, "true")
+
 	if vaultToken != "" {
-		req.Header.Set("x-vault-token", vaultToken)
+		req.Header.Set(vaultTokenHeader, vaultToken)
 	}
 
 	req.Header.Set("content-type", "application/json")
@@ -72,8 +76,10 @@ func (c *Client) Read(ctx context.Context, path string, vaultToken string) (*Res
 	}
 
 	if vaultToken != "" {
-		req.Header.Set("x-vault-token", vaultToken)
+		req.Header.Set(vaultTokenHeader, vaultToken)
 	}
+
+	req.Header.Set(vaultRequestHeader, "true")
 
 	res, err := c.HTTP.Do(req)
 	if err != nil {

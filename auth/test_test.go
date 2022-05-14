@@ -8,6 +8,7 @@ import (
 )
 
 const apiPathRenew = "/v1/auth/token/renew-self"
+const apiPathKubernetesLogin = "/v1/auth/kubernetes/login"
 
 // FakeAPI is a test fake for auth.API.
 type FakeAPI struct {
