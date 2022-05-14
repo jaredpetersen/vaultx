@@ -218,7 +218,7 @@ func TestRenewSelfReturnsErrorOnInvalidResponseCode(t *testing.T) {
 
 	apic := fakeAPI{}
 	apic.writeFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
-		if path == apiPathRenew && vaultToken == token.Value {
+		if path == apiPathRenew && vaultToken == token.Value && payload == nil {
 			resBody := fmt.Sprintf(
 				"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
 				renewedToken.Value,
@@ -254,7 +254,7 @@ func TestRenewSelfReturnsErrorOnInvalidJSONResponse(t *testing.T) {
 
 	apic := fakeAPI{}
 	apic.writeFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
-		if path == apiPathRenew && vaultToken == token.Value {
+		if path == apiPathRenew && vaultToken == token.Value && payload == nil {
 			res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader("a}"))}
 			return &res, nil
 		}
@@ -346,7 +346,7 @@ func TestAutomaticRenewsTokenAndSetsToken(t *testing.T) {
 
 	apic := fakeAPI{}
 	apic.writeFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
-		if path == apiPathRenew && vaultToken == token.Value {
+		if path == apiPathRenew && vaultToken == token.Value && payload == nil {
 			resBody := fmt.Sprintf(
 				"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
 				renewedToken.Value,
@@ -440,7 +440,7 @@ func TestAutomaticRenewsTokenOnTime(t *testing.T) {
 
 	apic := fakeAPI{}
 	apic.writeFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
-		if path == apiPathRenew && vaultToken == token.Value {
+		if path == apiPathRenew && vaultToken == token.Value && payload == nil {
 			resBody := fmt.Sprintf(
 				"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
 				token.Value,
@@ -505,7 +505,7 @@ func TestAutomaticDoesNotRenewNonRenewableToken(t *testing.T) {
 
 	apic := fakeAPI{}
 	apic.writeFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
-		if path == apiPathRenew && vaultToken == token.Value {
+		if path == apiPathRenew && vaultToken == token.Value && payload == nil {
 			resBody := fmt.Sprintf(
 				"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
 				renewedToken.Value,
@@ -559,7 +559,7 @@ func TestAutomaticStopsAfterContextDone(t *testing.T) {
 
 	apic := fakeAPI{}
 	apic.writeFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
-		if path == apiPathRenew && vaultToken == token.Value {
+		if path == apiPathRenew && vaultToken == token.Value && payload == nil {
 			resBody := fmt.Sprintf(
 				"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
 				token.Value,
@@ -624,7 +624,7 @@ func TestAutomaticRenewsTokenDespiteNotReceivingEvents(t *testing.T) {
 
 	apic := fakeAPI{}
 	apic.writeFunc = func(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error) {
-		if path == apiPathRenew && vaultToken == token.Value {
+		if path == apiPathRenew && vaultToken == token.Value && payload == nil {
 			resBody := fmt.Sprintf(
 				"{\"auth\": {\"client_token\": \"%s\", \"lease_duration\": %.0f, \"renewable\": %t}}",
 				renewedToken.Value,

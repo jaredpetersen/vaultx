@@ -1,4 +1,4 @@
-package db_test
+package kv_test
 
 import (
 	"context"

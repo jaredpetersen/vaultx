@@ -14,9 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/jaredpetersen/vaultx/api"
-	apimocks "github.com/jaredpetersen/vaultx/api/mocks"
 	"github.com/jaredpetersen/vaultx/auth"
-	authmocks "github.com/jaredpetersen/vaultx/auth/mocks"
 	"github.com/jaredpetersen/vaultx/db"
 	"github.com/jaredpetersen/vaultx/internal/testcontainerpostgres"
 	"github.com/jaredpetersen/vaultx/internal/testcontainervault"
@@ -29,8 +27,10 @@ func TestGenerateCredentialsReturnsCredentials(t *testing.T) {
 	token := auth.Token{
 		Value: "vault token",
 	}
-	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(token, nil)
+	tokenManager := fakeTokenManager{}
+	tokenManager.getTokenFunc = func() auth.Token {
+		return token
+	}
 
 	generatedLeaseID := "somelease"
 	generatedLeaseExpiration := 400
@@ -38,33 +38,36 @@ func TestGenerateCredentialsReturnsCredentials(t *testing.T) {
 	generatedUsername := "someusername"
 	generatedPassword := "somepassword"
 
-	// Set up mocked API response
-	resBodyFmt := `{
-		"lease_id": "%s",
-		"lease_duration": %d,
-		"renewable": %t,
-		"data": {
-			"username": "%s",
-			"password": "%s"
-		}
-	}`
-	resBody := fmt.Sprintf(
-		resBodyFmt,
-		generatedLeaseID,
-		generatedLeaseExpiration,
-		generatedLeaseRenewable,
-		generatedUsername,
-		generatedPassword)
-	res := api.Response{
-		StatusCode: 200,
-		RawBody:    io.NopCloser(strings.NewReader(resBody)),
-	}
-
 	dbRole := "dbrole"
 
 	// Set up mock API
-	apic := apimocks.API{}
-	apic.On("Read", ctx, "/v1/database/creds/"+dbRole, token.Value).Return(&res, nil)
+	apic := fakeAPI{}
+	apic.readFunc = func(ctx context.Context, path string, vaultToken string) (*api.Response, error) {
+		if path == "/v1/database/creds/"+dbRole && vaultToken == token.Value {
+			resBodyFmt := `{
+				"lease_id": "%s",
+				"lease_duration": %d,
+				"renewable": %t,
+				"data": {
+					"username": "%s",
+					"password": "%s"
+				}
+			}`
+			resBody := fmt.Sprintf(
+				resBodyFmt,
+				generatedLeaseID,
+				generatedLeaseExpiration,
+				generatedLeaseRenewable,
+				generatedUsername,
+				generatedPassword)
+			res := api.Response{
+				StatusCode: 200,
+				RawBody:    io.NopCloser(strings.NewReader(resBody)),
+			}
+			return &res, nil
+		}
+		return nil, nil
+	}
 
 	dbc := db.Client{
 		API:          &apic,
@@ -88,17 +91,24 @@ func TestGenerateCredentialsReturnsErrorOnRequestFailure(t *testing.T) {
 	token := auth.Token{
 		Value: "vault token",
 	}
-	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(token, nil)
+	tokenManager := fakeTokenManager{}
+	tokenManager.getTokenFunc = func() auth.Token {
+		return token
+	}
+
+	dbRole := "dbrole"
 
 	// Set up mocked API request error
 	resErr := errors.New("failed request")
 
-	dbRole := "dbrole"
-
 	// Set up mock API
-	apic := apimocks.API{}
-	apic.On("Read", ctx, "/v1/database/creds/"+dbRole, token.Value).Return(nil, resErr)
+	apic := fakeAPI{}
+	apic.readFunc = func(ctx context.Context, path string, vaultToken string) (*api.Response, error) {
+		if path == "/v1/database/creds/"+dbRole && vaultToken == token.Value {
+			return nil, resErr
+		}
+		return nil, nil
+	}
 
 	dbc := db.Client{
 		API:          &apic,
@@ -117,29 +127,35 @@ func TestGenerateCredentialsReturnsErrorOnInvalidResponseCode(t *testing.T) {
 	token := auth.Token{
 		Value: "vault token",
 	}
-	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(token, nil)
-
-	// Set up mocked API response with valid body but incorrect status code
-	resBody := `{
-		"lease_id": "someid",
-		"lease_duration": 300,
-		"renewable": true,
-		"data": {
-			"username": "someusername",
-			"password": "somepassword"
-		}
-	}`
-	res := api.Response{
-		StatusCode: 418,
-		RawBody:    io.NopCloser(strings.NewReader(resBody)),
+	tokenManager := fakeTokenManager{}
+	tokenManager.getTokenFunc = func() auth.Token {
+		return token
 	}
 
 	dbRole := "dbrole"
 
 	// Set up mock API
-	apic := apimocks.API{}
-	apic.On("Read", ctx, "/v1/database/creds/"+dbRole, token.Value).Return(&res, nil)
+	apic := fakeAPI{}
+	apic.readFunc = func(ctx context.Context, path string, vaultToken string) (*api.Response, error) {
+		if path == "/v1/database/creds/"+dbRole && vaultToken == token.Value {
+			// Valid body but incorrect status code
+			resBody := `{
+				"lease_id": "someid",
+				"lease_duration": 300,
+				"renewable": true,
+				"data": {
+					"username": "someusername",
+					"password": "somepassword"
+				}
+			}`
+			res := api.Response{
+				StatusCode: 418,
+				RawBody:    io.NopCloser(strings.NewReader(resBody)),
+			}
+			return &res, nil
+		}
+		return nil, nil
+	}
 
 	dbc := db.Client{
 		API:          &apic,
@@ -159,21 +175,26 @@ func TestGenerateCredentialsReturnsErrorOnInvalidJSONResponse(t *testing.T) {
 	token := auth.Token{
 		Value: "vault token",
 	}
-	tokenManager := authmocks.TokenManager{}
-	tokenManager.On("GetToken").Return(token, nil)
-
-	// Set up mocked API response with invalid JSON
-	resBody := "a}"
-	res := api.Response{
-		StatusCode: 200,
-		RawBody:    io.NopCloser(strings.NewReader(resBody)),
+	tokenManager := fakeTokenManager{}
+	tokenManager.getTokenFunc = func() auth.Token {
+		return token
 	}
 
 	dbRole := "dbrole"
 
 	// Set up mock API
-	apic := apimocks.API{}
-	apic.On("Read", ctx, "/v1/database/creds/"+dbRole, token.Value).Return(&res, nil)
+	apic := fakeAPI{}
+	apic.readFunc = func(ctx context.Context, path string, vaultToken string) (*api.Response, error) {
+		if path == "/v1/database/creds/"+dbRole && vaultToken == token.Value {
+			resBody := "a}"
+			res := api.Response{
+				StatusCode: 200,
+				RawBody:    io.NopCloser(strings.NewReader(resBody)),
+			}
+			return &res, nil
+		}
+		return nil, nil
+	}
 
 	dbc := db.Client{
 		API:          &apic,

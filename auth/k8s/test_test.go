@@ -1,10 +1,9 @@
-package db_test
+package k8s_test
 
 import (
 	"context"
 
 	"github.com/jaredpetersen/vaultx/api"
-	"github.com/jaredpetersen/vaultx/auth"
 )
 
 // fakeAPI is a test fake for auth.API.
@@ -19,18 +18,4 @@ func (f fakeAPI) Write(ctx context.Context, path string, vaultToken string, payl
 
 func (f fakeAPI) Read(ctx context.Context, path string, vaultToken string) (*api.Response, error) {
 	return f.readFunc(ctx, path, vaultToken)
-}
-
-// fakeTokenManager is a test fake for auth.TokenManager.
-type fakeTokenManager struct {
-	setTokenFunc func(token auth.Token)
-	getTokenFunc func() auth.Token
-}
-
-func (f fakeTokenManager) SetToken(token auth.Token) {
-	f.setTokenFunc(token)
-}
-
-func (f fakeTokenManager) GetToken() auth.Token {
-	return f.getTokenFunc()
 }

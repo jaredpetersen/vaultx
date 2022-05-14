@@ -1,4 +1,4 @@
-package db_test
+package transit_test
 
 import (
 	"context"
