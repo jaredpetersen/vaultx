@@ -51,7 +51,7 @@ func TestLoginUsesAuthMethodToSetToken(t *testing.T) {
 	}
 
 	authMethod := fakeMethod{}
-	authMethod.loginFunc = func(ctx context.Context, api auth.API) (auth.Token, error) {
+	authMethod.loginFunc = func(ctx context.Context, api api.API) (auth.Token, error) {
 		return token, nil
 	}
 
@@ -75,7 +75,7 @@ func TestLoginReturnsErrorOnAuthMethodError(t *testing.T) {
 	authMethodErr := errors.New("authentication failure")
 
 	authMethod := fakeMethod{}
-	authMethod.loginFunc = func(ctx context.Context, api auth.API) (auth.Token, error) {
+	authMethod.loginFunc = func(ctx context.Context, api api.API) (auth.Token, error) {
 		return auth.Token{Value: "dummy"}, authMethodErr
 	}
 
@@ -285,7 +285,7 @@ func TestAutomaticUsesAuthMethodLoginToSetToken(t *testing.T) {
 	}
 
 	authMethod := fakeMethod{}
-	authMethod.loginFunc = func(ctx context.Context, api auth.API) (auth.Token, error) {
+	authMethod.loginFunc = func(ctx context.Context, api api.API) (auth.Token, error) {
 		return token, nil
 	}
 
@@ -310,7 +310,7 @@ func TestAutomaticHandlesAuthMethodLoginError(t *testing.T) {
 	loginErr := errors.New("uh-oh")
 
 	authMethod := fakeMethod{}
-	authMethod.loginFunc = func(ctx context.Context, api auth.API) (auth.Token, error) {
+	authMethod.loginFunc = func(ctx context.Context, api api.API) (auth.Token, error) {
 		return auth.Token{}, loginErr
 	}
 
@@ -359,7 +359,7 @@ func TestAutomaticRenewsTokenAndSetsToken(t *testing.T) {
 	}
 
 	authMethod := fakeMethod{}
-	authMethod.loginFunc = func(ctx context.Context, api auth.API) (auth.Token, error) {
+	authMethod.loginFunc = func(ctx context.Context, api api.API) (auth.Token, error) {
 		return token, nil
 	}
 
@@ -400,7 +400,7 @@ func TestAutomaticHandlesRenewError(t *testing.T) {
 	}
 
 	authMethod := fakeMethod{}
-	authMethod.loginFunc = func(ctx context.Context, api auth.API) (auth.Token, error) {
+	authMethod.loginFunc = func(ctx context.Context, api api.API) (auth.Token, error) {
 		return token, nil
 	}
 
@@ -453,7 +453,7 @@ func TestAutomaticRenewsTokenOnTime(t *testing.T) {
 	}
 
 	authMethod := fakeMethod{}
-	authMethod.loginFunc = func(ctx context.Context, api auth.API) (auth.Token, error) {
+	authMethod.loginFunc = func(ctx context.Context, api api.API) (auth.Token, error) {
 		return token, nil
 	}
 
@@ -518,7 +518,7 @@ func TestAutomaticDoesNotRenewNonRenewableToken(t *testing.T) {
 	}
 
 	authMethod := fakeMethod{}
-	authMethod.loginFunc = func(ctx context.Context, api auth.API) (auth.Token, error) {
+	authMethod.loginFunc = func(ctx context.Context, api api.API) (auth.Token, error) {
 		return token, nil
 	}
 
@@ -572,7 +572,7 @@ func TestAutomaticStopsAfterContextDone(t *testing.T) {
 	}
 
 	authMethod := fakeMethod{}
-	authMethod.loginFunc = func(ctx context.Context, api auth.API) (auth.Token, error) {
+	authMethod.loginFunc = func(ctx context.Context, api api.API) (auth.Token, error) {
 		return token, nil
 	}
 
@@ -637,7 +637,7 @@ func TestAutomaticRenewsTokenDespiteNotReceivingEvents(t *testing.T) {
 	}
 
 	authMethod := fakeMethod{}
-	authMethod.loginFunc = func(ctx context.Context, api auth.API) (auth.Token, error) {
+	authMethod.loginFunc = func(ctx context.Context, api api.API) (auth.Token, error) {
 		return token, nil
 	}
 

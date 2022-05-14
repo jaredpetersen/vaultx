@@ -30,17 +30,11 @@ type TokenManager interface {
 	GetToken() Token
 }
 
-// API executes actions against the Vault API.
-type API interface {
-	// Write sends data to the Vault API.
-	Write(ctx context.Context, path string, vaultToken string, payload interface{}) (*api.Response, error)
-}
-
 // Method represents a way of authenticating against Vault using one of the officially supported techniques.
 //
 // For more information, see https://www.vaultproject.io/docs/auth
 type Method interface {
-	Login(ctx context.Context, api API) (Token, error)
+	Login(ctx context.Context, api api.API) (Token, error)
 }
 
 // Event is used to communicate authentication happenings.
@@ -55,7 +49,7 @@ type Event struct {
 //
 // See https://www.vaultproject.io/api-docs/auth for more information.
 type Client struct {
-	API        API
+	API        api.API
 	AuthMethod Method
 	token      Token
 	tokenMtx   sync.RWMutex
