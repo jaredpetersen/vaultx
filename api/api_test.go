@@ -9,8 +9,9 @@ import (
 	"testing"
 
 	"github.com/hashicorp/go-cleanhttp"
-	"github.com/jaredpetersen/vaultx/api"
 	"github.com/stretchr/testify/require"
+
+	"github.com/jaredpetersen/vaultx/api"
 )
 
 type dummyRequestBody struct {

@@ -10,10 +10,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/jaredpetersen/vaultx/api"
 	"github.com/jaredpetersen/vaultx/auth"
 	"github.com/jaredpetersen/vaultx/auth/k8s"
-	"github.com/stretchr/testify/require"
 )
 
 func TestNewProvidesDefaultJWTProvider(t *testing.T) {
