@@ -11,6 +11,9 @@ import (
 	"net/http"
 )
 
+const vaultTokenHeader = "x-vault-token"
+const vaultRequestHeader = "x-vault-request"
+
 // API makes requests against the Vault API.
 type API interface {
 	// Write sends data to the Vault API.
@@ -50,8 +53,10 @@ func (c *Client) Write(ctx context.Context, path string, vaultToken string, payl
 		return nil, fmt.Errorf("failed to create http request: %w", err)
 	}
 
+	req.Header.Set(vaultRequestHeader, "true")
+
 	if vaultToken != "" {
-		req.Header.Set("x-vault-token", vaultToken)
+		req.Header.Set(vaultTokenHeader, vaultToken)
 	}
 
 	req.Header.Set("content-type", "application/json")
@@ -71,8 +76,10 @@ func (c *Client) Read(ctx context.Context, path string, vaultToken string) (*Res
 	}
 
 	if vaultToken != "" {
-		req.Header.Set("x-vault-token", vaultToken)
+		req.Header.Set(vaultTokenHeader, vaultToken)
 	}
+
+	req.Header.Set(vaultRequestHeader, "true")
 
 	res, err := c.HTTP.Do(req)
 	if err != nil {
