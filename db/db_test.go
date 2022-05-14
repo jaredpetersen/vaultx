@@ -27,7 +27,7 @@ func TestGenerateCredentialsReturnsCredentials(t *testing.T) {
 	token := auth.Token{
 		Value: "vault token",
 	}
-	tokenManager := fakeTokenManager{}
+	tokenManager := FakeTokenManager{}
 	tokenManager.getTokenFunc = func() auth.Token {
 		return token
 	}
@@ -41,32 +41,29 @@ func TestGenerateCredentialsReturnsCredentials(t *testing.T) {
 	dbRole := "dbrole"
 
 	// Set up mock API
-	apic := fakeAPI{}
-	apic.readFunc = func(ctx context.Context, path string, vaultToken string) (*api.Response, error) {
-		if path == "/v1/database/creds/"+dbRole && vaultToken == token.Value {
-			resBodyFmt := `{
-				"lease_id": "%s",
-				"lease_duration": %d,
-				"renewable": %t,
-				"data": {
-					"username": "%s",
-					"password": "%s"
-				}
-			}`
-			resBody := fmt.Sprintf(
-				resBodyFmt,
-				generatedLeaseID,
-				generatedLeaseExpiration,
-				generatedLeaseRenewable,
-				generatedUsername,
-				generatedPassword)
-			res := api.Response{
-				StatusCode: 200,
-				RawBody:    io.NopCloser(strings.NewReader(resBody)),
+	apic := MockAPI{}
+	apic.GenerateDBCredentialsFunc = func(role string, vaultToken string) (*api.Response, error) {
+		assert.Equal(t, dbRole, role, "Inccorect DB role")
+		assert.Equal(t, vaultToken, token.Value, "Incorrect token")
+
+		resBodyFmt := `{
+			"lease_id": "%s",
+			"lease_duration": %d,
+			"renewable": %t,
+			"data": {
+				"username": "%s",
+				"password": "%s"
 			}
-			return &res, nil
-		}
-		return nil, nil
+		}`
+		resBody := fmt.Sprintf(
+			resBodyFmt,
+			generatedLeaseID,
+			generatedLeaseExpiration,
+			generatedLeaseRenewable,
+			generatedUsername,
+			generatedPassword)
+		res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
+		return &res, nil
 	}
 
 	dbc := db.Client{
@@ -91,7 +88,7 @@ func TestGenerateCredentialsReturnsErrorOnRequestFailure(t *testing.T) {
 	token := auth.Token{
 		Value: "vault token",
 	}
-	tokenManager := fakeTokenManager{}
+	tokenManager := FakeTokenManager{}
 	tokenManager.getTokenFunc = func() auth.Token {
 		return token
 	}
@@ -102,12 +99,9 @@ func TestGenerateCredentialsReturnsErrorOnRequestFailure(t *testing.T) {
 	resErr := errors.New("failed request")
 
 	// Set up mock API
-	apic := fakeAPI{}
-	apic.readFunc = func(ctx context.Context, path string, vaultToken string) (*api.Response, error) {
-		if path == "/v1/database/creds/"+dbRole && vaultToken == token.Value {
-			return nil, resErr
-		}
-		return nil, nil
+	apic := MockAPI{}
+	apic.GenerateDBCredentialsFunc = func(role string, vaultToken string) (*api.Response, error) {
+		return nil, resErr
 	}
 
 	dbc := db.Client{
@@ -127,7 +121,7 @@ func TestGenerateCredentialsReturnsErrorOnInvalidResponseCode(t *testing.T) {
 	token := auth.Token{
 		Value: "vault token",
 	}
-	tokenManager := fakeTokenManager{}
+	tokenManager := FakeTokenManager{}
 	tokenManager.getTokenFunc = func() auth.Token {
 		return token
 	}
@@ -135,26 +129,19 @@ func TestGenerateCredentialsReturnsErrorOnInvalidResponseCode(t *testing.T) {
 	dbRole := "dbrole"
 
 	// Set up mock API
-	apic := fakeAPI{}
-	apic.readFunc = func(ctx context.Context, path string, vaultToken string) (*api.Response, error) {
-		if path == "/v1/database/creds/"+dbRole && vaultToken == token.Value {
-			// Valid body but incorrect status code
-			resBody := `{
-				"lease_id": "someid",
-				"lease_duration": 300,
-				"renewable": true,
-				"data": {
-					"username": "someusername",
-					"password": "somepassword"
-				}
-			}`
-			res := api.Response{
-				StatusCode: 418,
-				RawBody:    io.NopCloser(strings.NewReader(resBody)),
+	apic := MockAPI{}
+	apic.GenerateDBCredentialsFunc = func(role string, vaultToken string) (*api.Response, error) {
+		resBody := `{
+			"lease_id": "someid",
+			"lease_duration": 300,
+			"renewable": true,
+			"data": {
+				"username": "someusername",
+				"password": "somepassword"
 			}
-			return &res, nil
-		}
-		return nil, nil
+		}`
+		res := api.Response{StatusCode: 418, RawBody: io.NopCloser(strings.NewReader(resBody))}
+		return &res, nil
 	}
 
 	dbc := db.Client{
@@ -175,7 +162,7 @@ func TestGenerateCredentialsReturnsErrorOnInvalidJSONResponse(t *testing.T) {
 	token := auth.Token{
 		Value: "vault token",
 	}
-	tokenManager := fakeTokenManager{}
+	tokenManager := FakeTokenManager{}
 	tokenManager.getTokenFunc = func() auth.Token {
 		return token
 	}
@@ -183,17 +170,11 @@ func TestGenerateCredentialsReturnsErrorOnInvalidJSONResponse(t *testing.T) {
 	dbRole := "dbrole"
 
 	// Set up mock API
-	apic := fakeAPI{}
-	apic.readFunc = func(ctx context.Context, path string, vaultToken string) (*api.Response, error) {
-		if path == "/v1/database/creds/"+dbRole && vaultToken == token.Value {
-			resBody := "a}"
-			res := api.Response{
-				StatusCode: 200,
-				RawBody:    io.NopCloser(strings.NewReader(resBody)),
-			}
-			return &res, nil
-		}
-		return nil, nil
+	apic := MockAPI{}
+	apic.GenerateDBCredentialsFunc = func(role string, vaultToken string) (*api.Response, error) {
+		resBody := "a}"
+		res := api.Response{StatusCode: 200, RawBody: io.NopCloser(strings.NewReader(resBody))}
+		return &res, nil
 	}
 
 	dbc := db.Client{
