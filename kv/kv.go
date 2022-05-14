@@ -1,3 +1,6 @@
+// Package kv contains all the functionality necessary for interacting with Vault's KV secrets engine.
+//
+// See https://www.vaultproject.io/docs/secrets/kv for more information.
 package kv
 
 import (
@@ -9,8 +12,6 @@ import (
 )
 
 // Client is the gateway into Vault's key-value secrets engine.
-//
-// For more information, see https://www.vaultproject.io/docs/secrets/kv.
 type Client struct {
 	API          api.API
 	TokenManager auth.TokenManager

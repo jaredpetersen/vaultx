@@ -1,3 +1,6 @@
+// Package auth contains all the functionality necessary for authenticating with Vault.
+//
+// See https://www.vaultproject.io/api-docs/auth for more information.
 package auth
 
 import (
@@ -46,8 +49,6 @@ type Event struct {
 }
 
 // Client is the gateway into the auth functionality provided by Vault.
-//
-// See https://www.vaultproject.io/api-docs/auth for more information.
 type Client struct {
 	API        api.API
 	AuthMethod Method

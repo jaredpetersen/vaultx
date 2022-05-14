@@ -1,3 +1,6 @@
+// Package db contains all the functionality necessary for interacting with Vault's database secrets engine.
+//
+// See https://www.vaultproject.io/docs/secrets/databases for more information.
 package db
 
 import (
@@ -10,8 +13,6 @@ import (
 )
 
 // Client is the gateway into Vault's database secrets engine.
-//
-// For more information, see https://www.vaultproject.io/docs/secrets/databases.
 type Client struct {
 	API          api.API
 	TokenManager auth.TokenManager

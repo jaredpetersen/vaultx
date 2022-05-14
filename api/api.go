@@ -1,3 +1,5 @@
+// Package api provides functionality for making requests against the Vault API. This can be used by clients to
+// perform actions manually that are not yet supported by vaultx.
 package api
 
 import (
@@ -9,10 +11,7 @@ import (
 	"net/http"
 )
 
-// API executes actions against the Vault API manually.
-//
-// This is primarily used by the various vaultx clients to communicate with Vault but can also be used by consumers
-// for functionality not yet implemented by the package.
+// API makes requests against the Vault API.
 type API interface {
 	// Write sends data to the Vault API.
 	Write(ctx context.Context, path string, vaultToken string, payload interface{}) (*Response, error)
