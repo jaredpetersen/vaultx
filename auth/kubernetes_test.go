@@ -10,8 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jaredpetersen/vaultx/auth"
 	"github.com/stretchr/testify/require"
+
+	"github.com/jaredpetersen/vaultx/auth"
 
 	"github.com/jaredpetersen/vaultx/api"
 )
