@@ -24,7 +24,7 @@ import (
 	"os"
 
 	"github.com/jaredpetersen/vaultx"
-	vaultxauth "github.com/jaredpetersen/vaultx/auth/k8s"
+	vaultxauth "github.com/jaredpetersen/vaultx/auth"
 )
 
 const k8sRole = "my-app"
@@ -35,7 +35,7 @@ func main() {
 	ctx := context.Background()
 
 	cfg := vaultx.NewConfig("https://vault.mydomain.com")
-	cfg.Auth.Method = vaultxauth.New(vaultxauth.Config{Role: k8sRole})
+	cfg.Auth.Method = vaultxauth.NewKubernetesMethod(vaultxauth.KubernetesConfig{Role: k8sRole})
 
 	vltx := vaultx.New(cfg)
 
@@ -85,7 +85,6 @@ func main() {
 
 	fmt.Printf("decrypted: %s\n", string(decrypted))
 }
-
 ```
 
 ## Install
