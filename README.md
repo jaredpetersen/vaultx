@@ -95,11 +95,6 @@ go get github.com/jaredpetersen/vaultx
 
 ## Sponsorship
 If you or your company uses vaultx, please consider contributing to the project via
-[GitHub Sponsors](https://github.com/sponsors/jaredpetersen). There's some cool work that we'd like to do but cloud
-computing isn't free.
-
-One thing we'd really like to do is set up web APIs that use vaultx in all the major cloud providers (compute instances
-and K8s) so that we can have an end-to-end testing suite that validates that authentication and all the other supported
-features work in the real world. We have integration tests that run against Vault containers but there are some
-things -- like authentication -- that can't really be tested locally.
+[GitHub Sponsors](https://github.com/sponsors/jaredpetersen). There's some cool work that we'd like to do -- like
+end-to-end integration tests -- but cloud computing isn't free.
 
